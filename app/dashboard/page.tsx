@@ -2,12 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { AppSidebar } from '@/components/app-sidebar';
 import { ChartAreaInteractive } from '@/components/chart-area-interactive';
 import { DataTable } from '@/components/data-table';
 import { SectionCards } from '@/components/section-cards';
-import { SiteHeader } from '@/components/site-header';
-import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import { adminService } from '@/lib/api/admin.service';
 import { DashboardStats } from '@/lib/types/models';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -42,42 +39,36 @@ export default function Page() {
 	}, []);
 
 	return (
-		<SidebarProvider
-			style={
-				{
-					'--sidebar-width': 'calc(var(--spacing) * 72)',
-					'--header-height': 'calc(var(--spacing) * 12)',
-				} as React.CSSProperties
-			}
-		>
-			<AppSidebar variant='inset' />
-			<SidebarInset>
-				<SiteHeader />
-				<div className='flex flex-1 flex-col'>
-					<div className='@container/main flex flex-1 flex-col gap-2'>
-						<div className='flex flex-col gap-4 py-4 md:gap-6 md:py-6'>
-							{error && (
-								<div className='px-4 lg:px-6'>
-									<Alert variant='destructive'>
-										<IconAlertCircle className='h-4 w-4' />
-										<AlertDescription>
-											{error}. Using fallback data for demonstration.
-										</AlertDescription>
-									</Alert>
-								</div>
-							)}
-
-							<SectionCards stats={stats} isLoading={isLoadingStats} />
-
-							<div className='px-4 lg:px-6'>
-								<ChartAreaInteractive />
-							</div>
-
-							<DataTable data={fallbackData} />
-						</div>
-					</div>
+		<div className='flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6'>
+			<div className='flex items-center justify-between'>
+				<div>
+					<h1 className='text-2xl font-semibold tracking-tight'>Dashboard</h1>
+					<p className='text-sm text-muted-foreground'>
+						Overview of your ride-hailing platform
+					</p>
 				</div>
-			</SidebarInset>
-		</SidebarProvider>
+			</div>
+
+			{error && (
+				<Alert variant='destructive'>
+					<IconAlertCircle className='h-4 w-4' />
+					<AlertDescription>
+						{error}. Using fallback data for demonstration.
+					</AlertDescription>
+				</Alert>
+			)}
+
+			<SectionCards stats={stats} isLoading={isLoadingStats} />
+
+			<div className='rounded-lg border p-4'>
+				<h2 className='mb-4 text-lg font-semibold'>Revenue Overview</h2>
+				<ChartAreaInteractive />
+			</div>
+
+			<div className='rounded-lg border p-4'>
+				<h2 className='mb-4 text-lg font-semibold'>Recent Activity</h2>
+				<DataTable data={fallbackData} />
+			</div>
+		</div>
 	);
 }

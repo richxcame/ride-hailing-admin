@@ -84,6 +84,7 @@ const createApiClient = (baseURL: string): AxiosInstance => {
     headers: {
       'Content-Type': 'application/json',
     },
+    withCredentials: true, // Enable credentials (cookies) for CORS
   });
 
   // Add interceptors
