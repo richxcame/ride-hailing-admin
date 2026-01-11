@@ -27,13 +27,9 @@ import {
 	SidebarMenuButton,
 	SidebarMenuItem,
 } from '@/components/ui/sidebar';
+import { useAuth } from '@/hooks/use-auth';
 
 const data = {
-	user: {
-		name: 'MonteGo',
-		email: 'montego@example.com',
-		avatar: '/avatars/shadcn.jpg',
-	},
 	navMain: [
 		{
 			title: 'Dashboard',
@@ -91,6 +87,20 @@ const data = {
 };
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+	const { user } = useAuth();
+
+	const userData = user
+		? {
+				name: `${user.first_name} ${user.last_name}`,
+				email: user.email,
+				avatar: user.profile_image || '/avatars/shadcn.jpg',
+		  }
+		: {
+				name: 'MonteGo Admin',
+				email: 'admin@montego.com',
+				avatar: '/avatars/shadcn.jpg',
+		  };
+
 	return (
 		<Sidebar collapsible='offExamples' {...props}>
 			<SidebarHeader>
@@ -100,7 +110,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 							asChild
 							className='data-[slot=sidebar-menu-button]:!p-1.5'
 						>
-							<a href='#'>
+							<a href='/dashboard'>
 								<Image
 									src='/montego.png'
 									alt='MonteGo Logo'
@@ -118,7 +128,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 				<NavSecondary items={data.navSecondary} className='mt-auto' />
 			</SidebarContent>
 			<SidebarFooter>
-				<NavUser user={data.user} />
+				<NavUser user={userData} />
 			</SidebarFooter>
 		</Sidebar>
 	);
