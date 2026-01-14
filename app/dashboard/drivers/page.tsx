@@ -35,7 +35,7 @@ export default function DriversPage() {
 				offset: pagination.offset,
 			});
 			setDrivers(response.data);
-			setPagination((prev) => ({ ...prev, total: response.total }));
+			setPagination((prev) => ({ ...prev, total: response.meta.total }));
 		} catch (error) {
 			const errorMessage = error instanceof Error ? error.message : 'Failed to load drivers';
 			toast.error('Failed to load drivers', { description: errorMessage });
@@ -52,7 +52,7 @@ export default function DriversPage() {
 				offset: pendingPagination.offset,
 			});
 			setPendingDrivers(response.data);
-			setPendingPagination((prev) => ({ ...prev, total: response.total }));
+			setPendingPagination((prev) => ({ ...prev, total: response.meta.total }));
 		} catch (error) {
 			const errorMessage =
 				error instanceof Error ? error.message : 'Failed to load pending drivers';

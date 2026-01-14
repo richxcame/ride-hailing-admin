@@ -11,21 +11,28 @@ export interface PaginationParams {
   limit?: number;
   offset?: number;
   page?: number;
+  [key: string]: unknown;
 }
 
-// Paginated response
-export interface PaginatedResponse<T> {
-  data: T[];
-  total: number;
+// Pagination metadata (new format from backend)
+export interface PaginationMeta {
   limit: number;
   offset: number;
-  has_more: boolean;
+  total: number;
+  total_pages: number;
+}
+
+// Paginated response (new format with meta)
+export interface PaginatedResponse<T> {
+  data: T[];
+  meta: PaginationMeta;
 }
 
 // Date range filter
 export interface DateRangeFilter {
   start_date?: string;
   end_date?: string;
+  [key: string]: unknown;
 }
 
 // API Error class

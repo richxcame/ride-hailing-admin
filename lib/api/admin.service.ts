@@ -7,7 +7,16 @@ import {
   RejectDriverRequest,
   DateRangeFilter,
 } from '@/lib/types/api';
-import { User, Driver, Ride, DashboardStats } from '@/lib/types/models';
+import {
+  User,
+  Driver,
+  Ride,
+  DashboardStats,
+  RealtimeMetrics,
+  DashboardSummary,
+  RevenueTrend,
+  ActivityFeedItem,
+} from '@/lib/types/models';
 
 /**
  * Admin Service API Client
@@ -158,5 +167,111 @@ export const adminService = {
    */
   getRide: async (rideId: string): Promise<Ride> => {
     return api.get<Ride>(adminClient, `/api/v1/admin/rides/${rideId}`);
+  },
+
+  /**
+   * Get real-time dashboard metrics
+   * GET /api/v1/admin/dashboard/realtime
+   */
+  getRealtimeMetrics: async (): Promise<RealtimeMetrics> => {
+    return api.get<RealtimeMetrics>(adminClient, '/api/v1/admin/dashboard/realtime');
+  },
+
+  /**
+   * Get comprehensive dashboard summary
+   * GET /api/v1/admin/dashboard/summary
+   */
+  getDashboardSummary: async (params?: {
+    period?: 'today' | 'week' | 'month' | 'all';
+  }): Promise<DashboardSummary> => {
+    return api.get<DashboardSummary>(adminClient, '/api/v1/admin/dashboard/summary', params);
+  },
+
+  /**
+   * Get revenue trend data
+   * GET /api/v1/admin/dashboard/revenue-trend
+   */
+  getRevenueTrend: async (params?: {
+    period?: 'today' | '7days' | '30days' | '90days' | 'year';
+    group_by?: 'hour' | 'day' | 'week' | 'month';
+  }): Promise<RevenueTrend> => {
+    return api.get<RevenueTrend>(adminClient, '/api/v1/admin/dashboard/revenue-trend', params);
+  },
+
+  /**
+   * Get action items requiring attention
+   * GET /api/v1/admin/dashboard/action-items
+   */
+  getActionItems: async (): Promise<{
+    pending_driver_approvals: {
+      count: number;
+      urgent_count: number;
+      items: Array<{
+        driver_id: string;
+        driver_name: string;
+        submitted_at: string;
+        days_waiting: number;
+      }>;
+    };
+    fraud_alerts: {
+      count: number;
+      critical_count: number;
+      high_count: number;
+      items: Array<{
+        alert_id: string;
+        alert_type: string;
+        alert_level: string;
+        user_id: string;
+        created_at: string;
+      }>;
+    };
+    negative_feedback: {
+      count: number;
+      one_star_count: number;
+      items: Array<{
+        ride_id: string;
+        driver_id: string;
+        driver_name: string;
+        rating: number;
+        feedback: string;
+        created_at: string;
+      }>;
+    };
+    low_balance_drivers: {
+      count: number;
+      items: Array<{
+        driver_id: string;
+        driver_name: string;
+        balance: number;
+        last_ride: string;
+      }>;
+    };
+    expired_documents: {
+      count: number;
+      items: Array<{
+        driver_id: string;
+        driver_name: string;
+        document_type: string;
+        expired_at: string;
+      }>;
+    };
+  }> => {
+    return api.get(adminClient, '/api/v1/admin/dashboard/action-items');
+  },
+
+  /**
+   * Get recent activity feed
+   * GET /api/v1/admin/dashboard/activity-feed
+   */
+  getActivityFeed: async (
+    params?: PaginationParams & {
+      types?: string;
+    }
+  ): Promise<PaginatedResponse<ActivityFeedItem>> => {
+    return api.get<PaginatedResponse<ActivityFeedItem>>(
+      adminClient,
+      '/api/v1/admin/dashboard/activity-feed',
+      params
+    );
   },
 };

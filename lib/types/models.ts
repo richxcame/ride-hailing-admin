@@ -265,3 +265,95 @@ export interface PromoPerformance {
   unique_users: number;
   conversion_rate: number;
 }
+
+// Real-time dashboard metrics
+export interface RealtimeMetrics {
+  active_rides: number;
+  available_drivers: number;
+  pending_requests: number;
+  today_revenue: number;
+  today_revenue_change: number;
+  online_drivers: number;
+  total_riders_active: number;
+  avg_wait_time: number;
+  avg_eta: number;
+}
+
+// Dashboard summary (enhanced)
+export interface DashboardSummary {
+  rides: {
+    total: number;
+    completed: number;
+    cancelled: number;
+    in_progress: number;
+    pending: number;
+    completion_rate: number;
+    cancellation_rate: number;
+    cancelled_by_rider: number;
+    cancelled_by_driver: number;
+    avg_duration: number;
+    avg_distance: number;
+    change_vs_previous: number;
+  };
+  drivers: {
+    total_active: number;
+    online_now: number;
+    available_now: number;
+    busy_now: number;
+    pending_approvals: number;
+    avg_rating: number;
+    utilization_rate: number;
+    new_signups: number;
+  };
+  riders: {
+    total_active: number;
+    new_signups: number;
+    active_today: number;
+    retention_rate: number;
+  };
+  revenue: {
+    total: number;
+    commission: number;
+    driver_earnings: number;
+    avg_fare: number;
+    change_vs_previous: number;
+    by_payment_method: Array<{
+      method: PaymentMethod;
+      amount: number;
+      percentage: number;
+    }>;
+  };
+  alerts: {
+    fraud_alerts: number;
+    critical_alerts: number;
+    pending_investigations: number;
+  };
+}
+
+// Revenue trend data point
+export interface RevenueTrendPoint {
+  date: string;
+  revenue: number;
+  rides: number;
+  avg_fare: number;
+  commission: number;
+}
+
+// Revenue trend response
+export interface RevenueTrend {
+  period: string;
+  total_revenue: number;
+  avg_daily_revenue: number;
+  trend: RevenueTrendPoint[];
+}
+
+// Activity feed item
+export interface ActivityFeedItem {
+  id: string;
+  type: 'ride_completed' | 'ride_cancelled' | 'driver_approved' | 'driver_rejected' | 'fraud_alert' | 'user_suspended' | 'user_activated' | 'promo_redeemed' | 'payment_failed' | 'high_value_ride';
+  title: string;
+  description: string;
+  timestamp: string;
+  severity?: 'low' | 'medium' | 'high' | 'critical';
+  metadata?: Record<string, unknown>;
+}

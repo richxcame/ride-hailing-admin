@@ -43,7 +43,7 @@ export default function RidesPage() {
 				...(statusFilter !== 'all' && { status: statusFilter }),
 			});
 			setRides(response.data);
-			setPagination((prev) => ({ ...prev, total: response.total }));
+			setPagination((prev) => ({ ...prev, total: response.meta.total }));
 		} catch (error) {
 			const errorMessage = error instanceof Error ? error.message : 'Failed to load rides';
 			toast.error('Failed to load rides', { description: errorMessage });

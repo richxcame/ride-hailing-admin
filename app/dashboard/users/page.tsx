@@ -35,17 +35,22 @@ export default function UsersPage() {
 				limit: pagination.limit,
 				offset: pagination.offset,
 				...(roleFilter !== 'all' && { role: roleFilter }),
-				...(statusFilter !== 'all' && { is_active: statusFilter === 'active' }),
+				...(statusFilter !== 'all' && {
+					is_active: statusFilter === 'active',
+				}),
 				...(searchQuery && { search: searchQuery }),
 			});
+
+			console.log(response, 'response');
 
 			setUsers(response.data);
 			setPagination((prev) => ({
 				...prev,
-				total: response.total,
+				total: response.meta.total,
 			}));
 		} catch (error) {
-			const errorMessage = error instanceof Error ? error.message : 'Failed to load users';
+			const errorMessage =
+				error instanceof Error ? error.message : 'Failed to load users';
 			toast.error('Failed to load users', {
 				description: errorMessage,
 			});
@@ -72,7 +77,10 @@ export default function UsersPage() {
 		setPagination((prev) => ({ ...prev, offset: newOffset }));
 	};
 
-	const handleUserAction = async (action: 'suspend' | 'activate', userId: string) => {
+	const handleUserAction = async (
+		action: 'suspend' | 'activate',
+		userId: string
+	) => {
 		try {
 			if (action === 'suspend') {
 				await adminService.suspendUser(userId, {
@@ -85,7 +93,8 @@ export default function UsersPage() {
 			}
 			fetchUsers();
 		} catch (error) {
-			const errorMessage = error instanceof Error ? error.message : 'Action failed';
+			const errorMessage =
+				error instanceof Error ? error.message : 'Action failed';
 			toast.error('Failed to update user', {
 				description: errorMessage,
 			});
@@ -96,7 +105,9 @@ export default function UsersPage() {
 		<div className='flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6'>
 			<div className='flex items-center justify-between'>
 				<div>
-					<h1 className='text-2xl font-semibold tracking-tight'>Users</h1>
+					<h1 className='text-2xl font-semibold tracking-tight'>
+						Users
+					</h1>
 					<p className='text-sm text-muted-foreground'>
 						Manage all users in the system
 					</p>
@@ -132,7 +143,10 @@ export default function UsersPage() {
 						</div>
 					</div>
 					<div className='flex gap-2'>
-						<Select value={roleFilter} onValueChange={setRoleFilter}>
+						<Select
+							value={roleFilter}
+							onValueChange={setRoleFilter}
+						>
 							<SelectTrigger className='w-[140px]'>
 								<SelectValue placeholder='Role' />
 							</SelectTrigger>
@@ -143,14 +157,19 @@ export default function UsersPage() {
 								<SelectItem value='admin'>Admins</SelectItem>
 							</SelectContent>
 						</Select>
-						<Select value={statusFilter} onValueChange={setStatusFilter}>
+						<Select
+							value={statusFilter}
+							onValueChange={setStatusFilter}
+						>
 							<SelectTrigger className='w-[140px]'>
 								<SelectValue placeholder='Status' />
 							</SelectTrigger>
 							<SelectContent>
 								<SelectItem value='all'>All Status</SelectItem>
 								<SelectItem value='active'>Active</SelectItem>
-								<SelectItem value='inactive'>Inactive</SelectItem>
+								<SelectItem value='inactive'>
+									Inactive
+								</SelectItem>
 							</SelectContent>
 						</Select>
 					</div>

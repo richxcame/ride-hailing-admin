@@ -135,6 +135,20 @@ export async function apiRequest<T>(
     throw new ApiError(response.data.error || 'Request failed');
   }
 
+  // For paginated responses, return both data and meta
+  // Check if the response has both data array and meta object
+  if (
+    response.data.data &&
+    Array.isArray(response.data.data) &&
+    'meta' in response.data
+  ) {
+    return {
+      data: response.data.data,
+      meta: response.data.meta,
+    } as T;
+  }
+
+  // For non-paginated responses, return just the data
   return response.data.data as T;
 }
 
