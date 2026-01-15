@@ -214,16 +214,30 @@ export interface FraudAlert {
   user?: User;
 }
 
-// Dashboard statistics
+// Dashboard statistics (base /api/v1/admin/dashboard endpoint)
 export interface DashboardStats {
-  total_rides: number;
-  total_users: number;
-  total_revenue: number;
-  active_drivers: number;
-  pending_driver_approvals: number;
-  fraud_alerts_count: number;
-  rides_last_24h: number;
-  revenue_last_30_days: number;
+  users: {
+    total_users: number;
+    total_riders: number;
+    total_drivers: number;
+    active_users: number;
+  };
+  rides: {
+    total_rides: number;
+    completed_rides: number;
+    cancelled_rides: number;
+    active_rides: number;
+    total_revenue: number;
+    avg_fare: number;
+  };
+  today_rides: {
+    total_rides: number;
+    completed_rides: number;
+    cancelled_rides: number;
+    active_rides: number;
+    total_revenue: number;
+    avg_fare: number;
+  };
 }
 
 // Revenue metrics

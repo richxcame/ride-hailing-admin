@@ -147,7 +147,7 @@ export default function UsersPage() {
 							value={roleFilter}
 							onValueChange={setRoleFilter}
 						>
-							<SelectTrigger className='w-[140px]'>
+							<SelectTrigger className='w-35'>
 								<SelectValue placeholder='Role' />
 							</SelectTrigger>
 							<SelectContent>
@@ -161,7 +161,7 @@ export default function UsersPage() {
 							value={statusFilter}
 							onValueChange={setStatusFilter}
 						>
-							<SelectTrigger className='w-[140px]'>
+							<SelectTrigger className='w-35'>
 								<SelectValue placeholder='Status' />
 							</SelectTrigger>
 							<SelectContent>
