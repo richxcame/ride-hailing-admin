@@ -141,7 +141,13 @@ export const adminService = {
    * Get recent rides
    * GET /api/v1/admin/rides/recent
    */
-  getRecentRides: async (params?: PaginationParams): Promise<PaginatedResponse<Ride>> => {
+  getRecentRides: async (
+    params?: PaginationParams & {
+      status?: string;
+      start_date?: string;
+      end_date?: string;
+    }
+  ): Promise<PaginatedResponse<Ride>> => {
     return api.get<PaginatedResponse<Ride>>(adminClient, '/api/v1/admin/rides/recent', params);
   },
 

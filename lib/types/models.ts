@@ -75,6 +75,30 @@ export interface Driver {
   user?: User;
 }
 
+// Rider info returned with rides
+export interface RideRider {
+  id: string;
+  email: string;
+  first_name: string;
+  last_name: string;
+  phone_number: string;
+  profile_image?: string;
+}
+
+// Driver info returned with rides (includes driver-specific fields)
+export interface RideDriver {
+  id: string;
+  user_id: string;
+  first_name: string;
+  last_name: string;
+  phone_number: string;
+  profile_image?: string;
+  vehicle_model: string;
+  vehicle_plate: string;
+  vehicle_color: string;
+  rating: number;
+}
+
 // Ride model
 export interface Ride {
   id: string;
@@ -111,8 +135,8 @@ export interface Ride {
   created_at: string;
   updated_at: string;
   // Joined data
-  rider?: User;
-  driver?: User;
+  rider?: RideRider;
+  driver?: RideDriver;
   ride_type?: RideType;
 }
 
