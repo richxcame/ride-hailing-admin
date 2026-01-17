@@ -12,7 +12,8 @@ import {
 	getSortedRowModel,
 	useReactTable,
 } from '@tanstack/react-table';
-import { IconChevronDown, IconChevronUp, IconDots, IconEye, IconUserOff, IconUserCheck } from '@tabler/icons-react';
+import { IconChevronDown, IconChevronUp, IconDots, IconEye, IconUserOff, IconUserCheck, IconExternalLink } from '@tabler/icons-react';
+import Link from 'next/link';
 import { User } from '@/lib/types/models';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -44,7 +45,7 @@ interface UsersTableProps {
 		offset: number;
 	};
 	onPageChange: (offset: number) => void;
-	onUserAction: (action: 'suspend' | 'activate', userId: string) => void;
+	onUserAction: (action: 'suspend' | 'activate' | 'view', userId: string) => void;
 }
 
 export function UsersTable({
@@ -192,9 +193,15 @@ export function UsersTable({
 								Copy user ID
 							</DropdownMenuItem>
 							<DropdownMenuSeparator />
-							<DropdownMenuItem>
+							<DropdownMenuItem onClick={() => onUserAction('view', user.id)}>
 								<IconEye className='mr-2 h-4 w-4' />
 								View details
+							</DropdownMenuItem>
+							<DropdownMenuItem asChild>
+								<Link href={`/dashboard/users/${user.id}`}>
+									<IconExternalLink className='mr-2 h-4 w-4' />
+									Open full page
+								</Link>
 							</DropdownMenuItem>
 							{user.is_active ? (
 								<DropdownMenuItem
