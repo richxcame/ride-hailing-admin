@@ -1,12 +1,11 @@
 import { api, fraudClient } from './client';
+import { PaginatedResponse, PaginationParams } from '@/lib/types/api';
 import {
-  PaginatedResponse,
-  PaginationParams,
-  CreateFraudAlertRequest,
-  InvestigateFraudAlertRequest,
-  ResolveFraudAlertRequest,
-} from '@/lib/types/api';
-import { FraudAlert } from '@/lib/types/models';
+  FraudAlert,
+  UserRiskProfile,
+  FraudStatistics,
+  FraudPattern,
+} from '@/lib/types/models';
 
 /**
  * Fraud Service API Client
@@ -40,7 +39,13 @@ export const fraudService = {
    * Create a new fraud alert (admin)
    * POST /api/v1/fraud/alerts
    */
-  createAlert: async (data: CreateFraudAlertRequest): Promise<FraudAlert> => {
+  createAlert: async (data: {
+    user_id: string;
+    alert_type: string;
+    alert_level: string;
+    description: string;
+    details?: Record<string, unknown>;
+  }): Promise<FraudAlert> => {
     return api.post<FraudAlert>(fraudClient, '/api/v1/fraud/alerts', data);
   },
 
@@ -50,7 +55,7 @@ export const fraudService = {
    */
   investigateAlert: async (
     alertId: string,
-    data?: InvestigateFraudAlertRequest
+    data?: { notes?: string }
   ): Promise<FraudAlert> => {
     return api.put<FraudAlert>(fraudClient, `/api/v1/fraud/alerts/${alertId}/investigate`, data);
   },
@@ -61,98 +66,142 @@ export const fraudService = {
    */
   resolveAlert: async (
     alertId: string,
-    data: ResolveFraudAlertRequest
+    data: {
+      status: 'confirmed' | 'false_positive';
+      action_taken?: string;
+      notes?: string;
+    }
   ): Promise<FraudAlert> => {
     return api.put<FraudAlert>(fraudClient, `/api/v1/fraud/alerts/${alertId}/resolve`, data);
   },
 
   /**
    * Get all fraud alerts for a specific user
-   * GET /api/v1/fraud/users/:id/alerts
+   * GET /api/v1/fraud/users/:user_id/alerts
    */
-  getUserAlerts: async (userId: string): Promise<FraudAlert[]> => {
-    return api.get<FraudAlert[]>(fraudClient, `/api/v1/fraud/users/${userId}/alerts`);
+  getUserAlerts: async (
+    userId: string,
+    params?: PaginationParams
+  ): Promise<PaginatedResponse<FraudAlert>> => {
+    return api.get<PaginatedResponse<FraudAlert>>(
+      fraudClient,
+      `/api/v1/fraud/users/${userId}/alerts`,
+      params
+    );
   },
 
   /**
    * Get user risk profile
-   * GET /api/v1/fraud/users/:id/risk-profile
+   * GET /api/v1/fraud/users/:user_id/risk-profile
    */
-  getUserRiskProfile: async (
-    userId: string
-  ): Promise<{
-    user_id: string;
-    risk_score: number;
-    risk_level: 'low' | 'medium' | 'high' | 'critical';
-    total_alerts: number;
-    open_alerts: number;
-    resolved_alerts: number;
-    suspicious_patterns: string[];
-    last_updated: string;
-  }> => {
-    return api.get(fraudClient, `/api/v1/fraud/users/${userId}/risk-profile`);
+  getUserRiskProfile: async (userId: string): Promise<UserRiskProfile> => {
+    return api.get<UserRiskProfile>(fraudClient, `/api/v1/fraud/users/${userId}/risk-profile`);
   },
 
   /**
    * Analyze user for fraud (triggers fraud detection algorithms)
-   * POST /api/v1/fraud/users/:id/analyze
+   * POST /api/v1/fraud/users/:user_id/analyze
    */
-  analyzeUser: async (
-    userId: string
-  ): Promise<{
-    risk_score: number;
-    alerts_created: number;
-    patterns_detected: string[];
+  analyzeUser: async (userId: string): Promise<{
+    payment_fraud?: {
+      risk_score: number;
+      alert_created: boolean;
+    };
+    ride_fraud?: {
+      risk_score: number;
+      alert_created: boolean;
+    };
+    account_fraud?: {
+      risk_score: number;
+      alert_created: boolean;
+    };
   }> => {
     return api.post(fraudClient, `/api/v1/fraud/users/${userId}/analyze`);
   },
 
   /**
    * Suspend user due to fraud
-   * POST /api/v1/fraud/users/:id/suspend
+   * POST /api/v1/fraud/users/:user_id/suspend
    */
   suspendUser: async (
     userId: string,
     data: {
       reason: string;
-      alert_ids?: string[];
+      alert_id?: string;
     }
-  ): Promise<{ success: boolean; message: string }> => {
+  ): Promise<{ message: string; suspended: boolean }> => {
     return api.post(fraudClient, `/api/v1/fraud/users/${userId}/suspend`, data);
   },
 
   /**
    * Reinstate a suspended user
-   * POST /api/v1/fraud/users/:id/reinstate
+   * POST /api/v1/fraud/users/:user_id/reinstate
    */
   reinstateUser: async (
     userId: string,
-    data: {
-      reason: string;
-    }
-  ): Promise<{ success: boolean; message: string }> => {
+    data?: { notes?: string }
+  ): Promise<{ message: string; reinstated: boolean }> => {
     return api.post(fraudClient, `/api/v1/fraud/users/${userId}/reinstate`, data);
   },
 
   /**
-   * Get fraud statistics
-   * GET /api/v1/fraud/stats
+   * Trigger payment fraud detection
+   * POST /api/v1/fraud/detect/payment/:user_id
    */
-  getStats: async (
-    params?: {
-      start_date?: string;
-      end_date?: string;
-    }
+  detectPaymentFraud: async (
+    userId: string
   ): Promise<{
-    total_alerts: number;
-    pending_alerts: number;
-    investigating_alerts: number;
-    resolved_alerts: number;
-    high_risk_users: number;
-    total_fraud_amount: number;
-    alerts_by_type: Record<string, number>;
-    alerts_by_level: Record<string, number>;
+    risk_score: number;
+    alert_created: boolean;
+    alert_id?: string;
   }> => {
-    return api.get(fraudClient, '/api/v1/fraud/stats', params);
+    return api.post(fraudClient, `/api/v1/fraud/detect/payment/${userId}`);
+  },
+
+  /**
+   * Trigger ride fraud detection
+   * POST /api/v1/fraud/detect/ride/:user_id
+   */
+  detectRideFraud: async (
+    userId: string
+  ): Promise<{
+    risk_score: number;
+    alert_created: boolean;
+    alert_id?: string;
+  }> => {
+    return api.post(fraudClient, `/api/v1/fraud/detect/ride/${userId}`);
+  },
+
+  /**
+   * Trigger account fraud detection
+   * POST /api/v1/fraud/detect/account/:user_id
+   */
+  detectAccountFraud: async (
+    userId: string
+  ): Promise<{
+    risk_score: number;
+    alert_created: boolean;
+    alert_id?: string;
+  }> => {
+    return api.post(fraudClient, `/api/v1/fraud/detect/account/${userId}`);
+  },
+
+  /**
+   * Get fraud statistics
+   * GET /api/v1/fraud/statistics
+   */
+  getStatistics: async (params?: {
+    start_date?: string;
+    end_date?: string;
+  }): Promise<FraudStatistics> => {
+    return api.get<FraudStatistics>(fraudClient, '/api/v1/fraud/statistics', params);
+  },
+
+  /**
+   * Get fraud patterns
+   * GET /api/v1/fraud/patterns
+   */
+  getPatterns: async (params?: { limit?: number }): Promise<FraudPattern[]> => {
+    return api.get<FraudPattern[]>(fraudClient, '/api/v1/fraud/patterns', params);
   },
 };

@@ -17,16 +17,18 @@ export type PaymentMethod = 'card' | 'wallet' | 'cash';
 
 // Fraud alert types
 export type FraudAlertType =
-  | 'duplicate_account'
   | 'payment_fraud'
+  | 'account_fraud'
+  | 'location_fraud'
   | 'ride_fraud'
-  | 'suspicious_activity';
+  | 'rating_manipulation'
+  | 'promo_abuse';
 
 // Fraud alert levels
 export type FraudAlertLevel = 'low' | 'medium' | 'high' | 'critical';
 
 // Fraud alert statuses
-export type FraudAlertStatus = 'pending' | 'investigating' | 'resolved';
+export type FraudAlertStatus = 'pending' | 'investigating' | 'confirmed' | 'false_positive' | 'resolved';
 
 // Notification types
 export type NotificationType = 'push' | 'sms' | 'email';
@@ -229,13 +231,92 @@ export interface FraudAlert {
   alert_level: FraudAlertLevel;
   risk_score: number;
   status: FraudAlertStatus;
-  description?: string;
-  metadata?: Record<string, unknown>;
-  created_at: string;
+  description: string;
+  details?: Record<string, unknown>;
+  detected_at: string;
+  investigated_at?: string;
+  investigated_by?: string;
   resolved_at?: string;
-  resolved_by?: string;
+  notes?: string;
+  action_taken?: string;
+  created_at: string;
+  updated_at: string;
   // Joined data
   user?: User;
+}
+
+// User risk profile
+export interface UserRiskProfile {
+  user_id: string;
+  risk_score: number;
+  total_alerts: number;
+  critical_alerts: number;
+  confirmed_fraud_cases: number;
+  last_alert_at?: string;
+  account_suspended: boolean;
+  last_updated: string;
+}
+
+// Fraud statistics
+export interface FraudStatistics {
+  period: string;
+  total_alerts: number;
+  critical_alerts: number;
+  high_alerts: number;
+  medium_alerts: number;
+  low_alerts: number;
+  confirmed_fraud_cases: number;
+  false_positives: number;
+  pending_investigation: number;
+  estimated_loss_prevented: number;
+  average_response_time: number;
+}
+
+// Fraud pattern
+export interface FraudPattern {
+  id: string;
+  pattern_type: string;
+  description: string;
+  occurrences: number;
+  affected_users: string[];
+  first_detected: string;
+  last_detected: string;
+  details?: Record<string, unknown>;
+  severity: FraudAlertLevel;
+  is_active: boolean;
+}
+
+// Payment fraud indicators
+export interface PaymentFraudIndicators {
+  user_id: string;
+  failed_payment_attempts: number;
+  chargeback_count: number;
+  multiple_payment_methods: number;
+  suspicious_transactions: number;
+  rapid_payment_changes: boolean;
+  risk_score: number;
+}
+
+// Ride fraud indicators
+export interface RideFraudIndicators {
+  user_id: string;
+  excessive_cancellations: number;
+  unusual_ride_patterns: boolean;
+  fake_gps_detected: boolean;
+  collision_with_driver: boolean;
+  promo_abuse: boolean;
+  risk_score: number;
+}
+
+// Account fraud indicators
+export interface AccountFraudIndicators {
+  user_id: string;
+  multiple_accounts_same_device: boolean;
+  rapid_account_creation: boolean;
+  suspicious_email_pattern: boolean;
+  fake_phone_number: boolean;
+  vpn_usage: boolean;
+  risk_score: number;
 }
 
 // Dashboard statistics (base /api/v1/admin/dashboard endpoint)

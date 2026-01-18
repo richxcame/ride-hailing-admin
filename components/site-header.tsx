@@ -11,6 +11,7 @@ const pageTitles: Record<string, string> = {
 	'/dashboard/rides': 'Rides',
 	'/dashboard/analytics': 'Analytics',
 	'/dashboard/fraud': 'Fraud Detection',
+	'/dashboard/fraud/statistics': 'Fraud Statistics',
 	'/dashboard/promos': 'Promos',
 	'/dashboard/settings': 'Settings',
 };
@@ -32,6 +33,7 @@ export function SiteHeader() {
 				if (title === 'Users') return 'User Details';
 				if (title === 'Drivers') return 'Driver Details';
 				if (title === 'Rides') return 'Ride Details';
+				if (title === 'Fraud Detection') return 'Fraud Alert Details';
 				return title;
 			}
 		}
