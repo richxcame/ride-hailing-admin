@@ -379,17 +379,6 @@ export const adminService = {
   },
 
   /**
-   * Get referrals analytics
-   * GET /api/v1/analytics/referrals
-   */
-  getAnalyticsReferrals: async (params?: {
-    start_date?: string;
-    end_date?: string;
-  }): Promise<any> => {
-    return api.get(analyticsClient, '/api/v1/analytics/referrals', params);
-  },
-
-  /**
    * Get financial report
    * GET /api/v1/analytics/financial-report
    */

@@ -29,7 +29,6 @@ import type {
 	RidesMetrics,
 	DriversPerformance,
 	RidersGrowth,
-	ReferralsAnalytics,
 	FinancialReport,
 } from '@/lib/types/models';
 import { Button } from '@/components/ui/button';
@@ -65,7 +64,6 @@ export default function AnalyticsPage() {
 	const [ridesMetrics, setRidesMetrics] = useState<RidesMetrics | null>(null);
 	const [driversPerformance, setDriversPerformance] = useState<DriversPerformance | null>(null);
 	const [ridersGrowth, setRidersGrowth] = useState<RidersGrowth | null>(null);
-	const [referrals, setReferrals] = useState<ReferralsAnalytics | null>(null);
 	const [financialReport, setFinancialReport] = useState<FinancialReport | null>(null);
 
 	const fetchAnalytics = useCallback(async () => {
@@ -84,7 +82,6 @@ export default function AnalyticsPage() {
 				metricsData,
 				driversData,
 				ridersData,
-				referralsData,
 				financialData,
 			] = await Promise.all([
 				adminService.getAnalyticsDashboard(),
@@ -94,7 +91,6 @@ export default function AnalyticsPage() {
 				adminService.getAnalyticsRidesMetrics(params),
 				adminService.getAnalyticsDriversPerformance(params),
 				adminService.getAnalyticsRidersGrowth(params),
-				adminService.getAnalyticsReferrals(params),
 				adminService.getAnalyticsFinancialReport(params),
 			]);
 
@@ -105,7 +101,6 @@ export default function AnalyticsPage() {
 			setRidesMetrics(metricsData);
 			setDriversPerformance(driversData);
 			setRidersGrowth(ridersData);
-			setReferrals(referralsData);
 			setFinancialReport(financialData);
 		} catch (error) {
 			const errorMessage = error instanceof Error ? error.message : 'Failed to load analytics';
@@ -713,42 +708,6 @@ export default function AnalyticsPage() {
 						</Card>
 					</div>
 
-					<Card>
-						<CardHeader>
-							<CardTitle className='flex items-center gap-2'>
-								<IconGift className='h-5 w-5' />
-								Referral Program
-							</CardTitle>
-							<CardDescription>Referral performance metrics</CardDescription>
-						</CardHeader>
-						<CardContent>
-							<div className='grid gap-4 md:grid-cols-4'>
-								<div className='text-center p-4 rounded-lg bg-muted/50'>
-									<div className='text-2xl font-bold'>{formatNumber(referrals?.total_referrals ?? 0)}</div>
-									<p className='text-xs text-muted-foreground mt-1'>Total Referrals</p>
-								</div>
-								<div className='text-center p-4 rounded-lg bg-muted/50'>
-									<div className='text-2xl font-bold text-green-600'>
-										{formatNumber(referrals?.completed_referrals ?? 0)}
-									</div>
-									<p className='text-xs text-muted-foreground mt-1'>Completed</p>
-								</div>
-								<div className='text-center p-4 rounded-lg bg-muted/50'>
-									<div className='text-2xl font-bold text-blue-600'>
-										{formatPercent(referrals?.conversion_rate ?? 0)}
-									</div>
-									<p className='text-xs text-muted-foreground mt-1'>Conversion Rate</p>
-								</div>
-								<div className='text-center p-4 rounded-lg bg-muted/50'>
-									<div className='text-2xl font-bold text-purple-600'>
-										{formatCurrency(referrals?.total_bonuses_paid ?? 0)}
-									</div>
-									<p className='text-xs text-muted-foreground mt-1'>Bonuses Paid</p>
-								</div>
-							</div>
-						</CardContent>
-					</Card>
-				</TabsContent>
 
 				{/* Financial Tab */}
 				<TabsContent value='financial' className='space-y-4'>

@@ -175,14 +175,40 @@ export interface Payment {
 export interface PromoCode {
   id: string;
   code: string;
-  discount_type: DiscountType;
+  description: string;
+  discount_type: 'percentage' | 'fixed_amount';
   discount_value: number;
-  max_uses: number;
-  used_count: number;
-  expiry_date: string;
-  created_by: string;
+  max_discount_amount?: number;
+  min_ride_amount?: number;
+  max_uses?: number;
+  total_uses: number;
+  uses_per_user: number;
+  valid_from: string;
+  valid_until: string;
+  is_active: boolean;
+  created_by?: string;
   created_at: string;
   updated_at: string;
+}
+
+// Promo code use/redemption record
+export interface PromoCodeUse {
+  id: string;
+  promo_code_id: string;
+  user_id: string;
+  ride_id: string;
+  discount_amount: number;
+  original_amount: number;
+  final_amount: number;
+  used_at: string;
+}
+
+// Promo code validation response
+export interface PromoCodeValidation {
+  valid: boolean;
+  message?: string;
+  discount_amount: number;
+  final_amount: number;
 }
 
 // Ride type model
@@ -194,6 +220,7 @@ export interface RideType {
   per_km_rate: number;
   per_minute_rate: number;
   minimum_fare: number;
+  capacity: number;
   is_active: boolean;
   created_at: string;
   updated_at: string;
