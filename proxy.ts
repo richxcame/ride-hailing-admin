@@ -4,12 +4,17 @@ import type { NextRequest } from 'next/server';
 // Routes that don't require authentication
 const publicRoutes = ['/login'];
 
-// Routes that require authentication
-const protectedRoutes = ['/dashboard', '/users', '/drivers', '/rides', '/analytics', '/fraud'];
+// Routes that require authentication (only dashboard routes, not API routes)
+const protectedRoutes = ['/dashboard'];
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const token = request.cookies.get('admin_token')?.value;
+
+  // Skip API routes - they handle their own authentication
+  if (pathname.startsWith('/api')) {
+    return NextResponse.next();
+  }
 
   // Check if the current route is public
   const isPublicRoute = publicRoutes.some((route) => pathname.startsWith(route));
@@ -32,7 +37,7 @@ export function middleware(request: NextRequest) {
   return NextResponse.next();
 }
 
-// Configure which routes should use this middleware
+// Configure which routes should use this proxy
 export const config = {
   matcher: [
     /*

@@ -395,3 +395,137 @@ export interface ActivityFeedItem {
   severity?: 'low' | 'medium' | 'high' | 'critical';
   metadata?: Record<string, unknown>;
 }
+
+// Analytics types
+export interface AnalyticsDashboard {
+  total_rides: number;
+  active_rides: number;
+  completed_today: number;
+  revenue_today: number;
+  active_drivers: number;
+  active_riders: number;
+  avg_rating: number;
+  top_ride_type: {
+    ride_type_id: string;
+    name: string;
+    total_rides: number;
+    total_revenue: number;
+    avg_fare: number;
+    percentage: number;
+  };
+}
+
+export interface RevenueAnalytics {
+  period: string;
+  total_revenue: number;
+  total_rides: number;
+  avg_fare_per_ride: number;
+  total_discounts: number;
+  platform_earnings: number;
+  driver_earnings: number;
+}
+
+export interface RevenueTimeseriesData {
+  date: string;
+  revenue: number;
+  rides: number;
+  avg_fare: number;
+}
+
+export interface RideTypeAnalytics {
+  ride_type_id: string;
+  name: string;
+  total_rides: number;
+  total_revenue: number;
+  avg_fare: number;
+  percentage: number;
+}
+
+export interface HourlyRideData {
+  hour: number;
+  rides: number;
+  avg_fare: number;
+  avg_wait_time: number;
+}
+
+export interface RidesMetrics {
+  avg_wait_time_minutes: number;
+  avg_ride_duration_minutes: number;
+  avg_distance_km: number;
+  cancellation_rate: number;
+  rider_cancellation_rate: number;
+  driver_cancellation_rate: number;
+  surge_rides_percentage: number;
+  avg_surge_multiplier: number;
+}
+
+export interface DriversPerformance {
+  total_active_drivers: number;
+  avg_rides_per_driver: number;
+  avg_online_hours: number;
+  avg_acceptance_rate: number;
+  avg_cancellation_rate: number;
+  avg_rating: number;
+  new_drivers: number;
+  churned_drivers: number;
+}
+
+export interface RidersGrowth {
+  new_riders: number;
+  returning_riders: number;
+  churned_riders: number;
+  retention_rate: number;
+  avg_rides_per_rider: number;
+  first_time_riders_today: number;
+  lifetime_value_avg: number;
+}
+
+export interface TopDriver {
+  driver_id: string;
+  driver_name: string;
+  total_rides: number;
+  total_earnings: number;
+  avg_rating: number;
+  completion_rate: number;
+  cancellation_rate: number;
+}
+
+export interface ReferralsAnalytics {
+  total_referrals: number;
+  completed_referrals: number;
+  total_bonuses_paid: number;
+  avg_bonus_per_referral: number;
+  conversion_rate: number;
+}
+
+export interface FinancialReport {
+  period: string;
+  gross_revenue: number;
+  net_revenue: number;
+  platform_commission: number;
+  driver_payouts: number;
+  promo_discounts: number;
+  referral_bonuses: number;
+  refunds: number;
+  total_expenses: number;
+  profit: number;
+  profit_margin_percent: number;
+  total_rides: number;
+  completed_rides: number;
+  cancelled_rides: number;
+  avg_revenue_per_ride: number;
+  top_revenue_day_amount: number;
+}
+
+export interface ComparisonMetric {
+  current: number;
+  previous: number;
+  change_percent: number;
+}
+
+export interface AnalyticsComparison {
+  revenue: ComparisonMetric;
+  rides: ComparisonMetric;
+  new_riders: ComparisonMetric;
+  avg_rating: ComparisonMetric;
+}

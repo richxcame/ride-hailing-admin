@@ -1,4 +1,4 @@
-import { api, adminClient } from './client';
+import { api, adminClient, analyticsClient } from './client';
 import {
   PaginatedResponse,
   PaginationParams,
@@ -279,5 +279,137 @@ export const adminService = {
       '/api/v1/admin/dashboard/activity-feed',
       params
     );
+  },
+
+  // ==================== Analytics Endpoints ====================
+
+  /**
+   * Get analytics dashboard overview
+   * GET /api/v1/analytics/dashboard
+   */
+  getAnalyticsDashboard: async (): Promise<any> => {
+    return api.get(analyticsClient, '/api/v1/analytics/dashboard');
+  },
+
+  /**
+   * Get revenue analytics
+   * GET /api/v1/analytics/revenue
+   */
+  getAnalyticsRevenue: async (params?: { start_date?: string; end_date?: string }): Promise<any> => {
+    return api.get(analyticsClient, '/api/v1/analytics/revenue', params);
+  },
+
+  /**
+   * Get revenue timeseries
+   * GET /api/v1/analytics/revenue/timeseries
+   */
+  getAnalyticsRevenueTimeseries: async (params?: {
+    start_date?: string;
+    end_date?: string;
+    granularity?: 'day' | 'week' | 'month';
+  }): Promise<any> => {
+    return api.get(analyticsClient, '/api/v1/analytics/revenue/timeseries', params);
+  },
+
+  /**
+   * Get ride types analytics
+   * GET /api/v1/analytics/ride-types
+   */
+  getAnalyticsRideTypes: async (params?: {
+    start_date?: string;
+    end_date?: string;
+  }): Promise<any> => {
+    return api.get(analyticsClient, '/api/v1/analytics/ride-types', params);
+  },
+
+  /**
+   * Get rides hourly distribution
+   * GET /api/v1/analytics/rides/hourly
+   */
+  getAnalyticsRidesHourly: async (params?: {
+    start_date?: string;
+    end_date?: string;
+  }): Promise<any> => {
+    return api.get(analyticsClient, '/api/v1/analytics/rides/hourly', params);
+  },
+
+  /**
+   * Get rides metrics
+   * GET /api/v1/analytics/rides/metrics
+   */
+  getAnalyticsRidesMetrics: async (params?: {
+    start_date?: string;
+    end_date?: string;
+  }): Promise<any> => {
+    return api.get(analyticsClient, '/api/v1/analytics/rides/metrics', params);
+  },
+
+  /**
+   * Get drivers performance
+   * GET /api/v1/analytics/drivers/performance
+   */
+  getAnalyticsDriversPerformance: async (params?: {
+    start_date?: string;
+    end_date?: string;
+  }): Promise<any> => {
+    return api.get(analyticsClient, '/api/v1/analytics/drivers/performance', params);
+  },
+
+  /**
+   * Get riders growth
+   * GET /api/v1/analytics/riders/growth
+   */
+  getAnalyticsRidersGrowth: async (params?: {
+    start_date?: string;
+    end_date?: string;
+  }): Promise<any> => {
+    return api.get(analyticsClient, '/api/v1/analytics/riders/growth', params);
+  },
+
+  /**
+   * Get top drivers
+   * GET /api/v1/analytics/top-drivers
+   */
+  getAnalyticsTopDrivers: async (params?: {
+    start_date?: string;
+    end_date?: string;
+    limit?: number;
+  }): Promise<any> => {
+    return api.get(analyticsClient, '/api/v1/analytics/top-drivers', params);
+  },
+
+  /**
+   * Get referrals analytics
+   * GET /api/v1/analytics/referrals
+   */
+  getAnalyticsReferrals: async (params?: {
+    start_date?: string;
+    end_date?: string;
+  }): Promise<any> => {
+    return api.get(analyticsClient, '/api/v1/analytics/referrals', params);
+  },
+
+  /**
+   * Get financial report
+   * GET /api/v1/analytics/financial-report
+   */
+  getAnalyticsFinancialReport: async (params?: {
+    start_date?: string;
+    end_date?: string;
+  }): Promise<any> => {
+    return api.get(analyticsClient, '/api/v1/analytics/financial-report', params);
+  },
+
+  /**
+   * Get period comparison
+   * GET /api/v1/analytics/comparison
+   */
+  getAnalyticsComparison: async (params?: {
+    current_start?: string;
+    current_end?: string;
+    previous_start?: string;
+    previous_end?: string;
+  }): Promise<any> => {
+    return api.get(analyticsClient, '/api/v1/analytics/comparison', params);
   },
 };
