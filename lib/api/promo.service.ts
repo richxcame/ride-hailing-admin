@@ -90,4 +90,139 @@ export const promoService = {
   }> => {
     return api.post(promosClient, '/api/v1/referrals/apply', data);
   },
+
+  /**
+   * Get all promo codes (admin only)
+   * GET /api/v1/admin/promo-codes
+   */
+  getAllPromoCodes: async (params?: {
+    limit?: number;
+    offset?: number;
+  }): Promise<{
+    data: PromoCode[];
+    meta: {
+      total: number;
+      limit: number;
+      offset: number;
+    };
+  }> => {
+    return api.get(promosClient, '/api/v1/admin/promo-codes', params);
+  },
+
+  /**
+   * Get all referral codes (admin only)
+   * GET /api/v1/admin/referral-codes
+   */
+  getAllReferralCodes: async (params?: {
+    limit?: number;
+    offset?: number;
+  }): Promise<{
+    data: Array<{
+      id: string;
+      user_id: string;
+      code: string;
+      total_referrals: number;
+      total_earnings: number;
+      created_at: string;
+      updated_at: string;
+    }>;
+    meta: {
+      total: number;
+      limit: number;
+      offset: number;
+    };
+  }> => {
+    return api.get(promosClient, '/api/v1/admin/referral-codes', params);
+  },
+
+  /**
+   * Get a specific promo code by ID (admin only)
+   * GET /api/v1/admin/promo-codes/:id
+   */
+  getPromoCode: async (promoId: string): Promise<PromoCode> => {
+    return api.get<PromoCode>(promosClient, `/api/v1/admin/promo-codes/${promoId}`);
+  },
+
+  /**
+   * Update a promo code (admin only)
+   * PATCH /api/v1/admin/promo-codes/:id
+   */
+  updatePromoCode: async (
+    promoId: string,
+    data: {
+      code?: string;
+      description?: string;
+      discount_type?: 'percentage' | 'fixed_amount';
+      discount_value?: number;
+      max_discount_amount?: number;
+      min_ride_amount?: number;
+      max_uses?: number;
+      uses_per_user?: number;
+      valid_from?: string;
+      valid_until?: string;
+      is_active?: boolean;
+    }
+  ): Promise<PromoCode> => {
+    return api.patch<PromoCode>(promosClient, `/api/v1/admin/promo-codes/${promoId}`, data);
+  },
+
+  /**
+   * Deactivate a promo code (admin only)
+   * DELETE /api/v1/admin/promo-codes/:id
+   */
+  deactivatePromoCode: async (promoId: string): Promise<{ message: string }> => {
+    return api.delete<{ message: string }>(promosClient, `/api/v1/admin/promo-codes/${promoId}`);
+  },
+
+  /**
+   * Get promo code usage statistics (admin only)
+   * GET /api/v1/admin/promo-codes/:id/usage
+   */
+  getPromoCodeUsageStats: async (promoId: string): Promise<{
+    promo_code: PromoCode;
+    total_discount_given: number;
+    unique_users: number;
+    recent_uses: Array<{
+      user_id: string;
+      ride_id: string;
+      discount_amount: number;
+      used_at: string;
+    }>;
+  }> => {
+    return api.get(promosClient, `/api/v1/admin/promo-codes/${promoId}/usage`);
+  },
+
+  /**
+   * Get referral details (admin only)
+   * GET /api/v1/admin/referrals/:id
+   */
+  getReferralDetails: async (referralId: string): Promise<{
+    id: string;
+    referrer_id: string;
+    referred_id: string;
+    referral_code_id: string;
+    referrer_bonus_amount: number;
+    referred_bonus_amount: number;
+    referrer_bonus_applied: boolean;
+    referred_bonus_applied: boolean;
+    referred_first_ride_id?: string;
+    completed_at?: string;
+    created_at: string;
+  }> => {
+    return api.get(promosClient, `/api/v1/admin/referrals/${referralId}`);
+  },
+
+  /**
+   * Get my referral earnings (authenticated user)
+   * GET /api/v1/referrals/my-earnings
+   */
+  getMyReferralEarnings: async (): Promise<{
+    total_referrals: number;
+    total_earnings: number;
+    pending_earnings: number;
+    completed_referrals: number;
+    referral_code: string;
+  }> => {
+    return api.get(promosClient, '/api/v1/referrals/my-earnings');
+  },
 };

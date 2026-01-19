@@ -18,16 +18,38 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { CreatePromoDialog } from '@/components/create-promo-dialog';
+import { PromoDetailDialog } from '@/components/promo-detail-dialog';
 
 export default function PromosPage() {
 	const [rideTypes, setRideTypes] = useState<RideType[]>([]);
+	const [promoCodes, setPromoCodes] = useState<PromoCode[]>([]);
+	const [referralCodes, setReferralCodes] = useState<
+		Array<{
+			id: string;
+			user_id: string;
+			code: string;
+			total_referrals: number;
+			total_earnings: number;
+			created_at: string;
+			updated_at: string;
+		}>
+	>([]);
 	const [isLoading, setIsLoading] = useState(true);
+	const [selectedPromoId, setSelectedPromoId] = useState<string | null>(null);
+	const [isSheetOpen, setIsSheetOpen] = useState(false);
 
 	const fetchData = async () => {
 		try {
 			setIsLoading(true);
-			const rideTypesData = await promoService.getRideTypes();
+			const [rideTypesData, promoCodesData, referralCodesData] = await Promise.all([
+				promoService.getRideTypes(),
+				promoService.getAllPromoCodes({ limit: 100, offset: 0 }),
+				promoService.getAllReferralCodes({ limit: 100, offset: 0 }),
+			]);
 			setRideTypes(rideTypesData || []);
+			setPromoCodes(promoCodesData?.data || []);
+			setReferralCodes(referralCodesData?.data || []);
 		} catch (error) {
 			const errorMessage = error instanceof Error ? error.message : 'Failed to load data';
 			toast.error('Failed to load promos data', { description: errorMessage });
@@ -45,6 +67,11 @@ export default function PromosPage() {
 			style: 'currency',
 			currency: 'USD',
 		}).format(value);
+	};
+
+	const handlePromoClick = (promoId: string) => {
+		setSelectedPromoId(promoId);
+		setIsSheetOpen(true);
 	};
 
 	if (isLoading) {
@@ -150,20 +177,74 @@ export default function PromosPage() {
 									<CardTitle>Promo Codes</CardTitle>
 									<CardDescription>Create and manage promotional discount codes</CardDescription>
 								</div>
-								<Button>
-									<IconPlus className='h-4 w-4 mr-2' />
-									Create Promo Code
-								</Button>
+								<CreatePromoDialog onSuccess={fetchData} />
 							</div>
 						</CardHeader>
 						<CardContent>
-							<div className='flex flex-col items-center justify-center py-12 text-center'>
-								<IconTag className='h-12 w-12 text-muted-foreground mb-4' />
-								<h3 className='text-lg font-semibold'>Coming Soon</h3>
-								<p className='text-sm text-muted-foreground'>
-									Promo code management will be available in the next update
-								</p>
-							</div>
+							{promoCodes.length === 0 ? (
+								<div className='flex flex-col items-center justify-center py-12 text-center'>
+									<IconTag className='h-12 w-12 text-muted-foreground mb-4' />
+									<h3 className='text-lg font-semibold'>No Promo Codes Yet</h3>
+									<p className='text-sm text-muted-foreground mb-4'>
+										Create your first promotional discount code to get started
+									</p>
+									<CreatePromoDialog onSuccess={fetchData} />
+								</div>
+							) : (
+								<div className='grid gap-4 md:grid-cols-2 lg:grid-cols-3'>
+									{promoCodes.map((promo) => (
+										<Card
+											key={promo.id}
+											className='cursor-pointer hover:border-primary transition-colors'
+											onClick={() => handlePromoClick(promo.id)}
+										>
+											<CardHeader>
+												<div className='flex items-start justify-between'>
+													<div>
+														<CardTitle className='text-lg flex items-center gap-2'>
+															<IconTag className='h-5 w-5' />
+															{promo.code}
+														</CardTitle>
+														<CardDescription className='mt-1'>{promo.description}</CardDescription>
+													</div>
+													<Badge variant={promo.is_active ? 'default' : 'secondary'}>
+														{promo.is_active ? 'Active' : 'Inactive'}
+													</Badge>
+												</div>
+											</CardHeader>
+											<CardContent className='space-y-3'>
+												<div className='flex items-center justify-between text-sm'>
+													<span className='text-muted-foreground'>Discount</span>
+													<span className='font-medium'>
+														{promo.discount_type === 'percentage'
+															? `${promo.discount_value}%`
+															: formatCurrency(promo.discount_value)}
+													</span>
+												</div>
+												<div className='flex items-center justify-between text-sm'>
+													<span className='text-muted-foreground'>Total Uses</span>
+													<span className='font-medium'>
+														{promo.total_uses}
+														{promo.max_uses ? ` / ${promo.max_uses}` : ' / Unlimited'}
+													</span>
+												</div>
+												<div className='flex items-center justify-between text-sm'>
+													<span className='text-muted-foreground'>Valid Until</span>
+													<span className='font-medium'>
+														{new Date(promo.valid_until).toLocaleDateString()}
+													</span>
+												</div>
+												{promo.min_ride_amount && (
+													<div className='flex items-center justify-between text-sm'>
+														<span className='text-muted-foreground'>Min. Ride</span>
+														<span className='font-medium'>{formatCurrency(promo.min_ride_amount)}</span>
+													</div>
+												)}
+											</CardContent>
+										</Card>
+									))}
+								</div>
+							)}
 						</CardContent>
 					</Card>
 				</TabsContent>
@@ -176,17 +257,71 @@ export default function PromosPage() {
 							<CardDescription>Monitor referral performance and bonuses</CardDescription>
 						</CardHeader>
 						<CardContent>
-							<div className='flex flex-col items-center justify-center py-12 text-center'>
-								<IconUsers className='h-12 w-12 text-muted-foreground mb-4' />
-								<h3 className='text-lg font-semibold'>Coming Soon</h3>
-								<p className='text-sm text-muted-foreground'>
-									Referral analytics will be available in the next update
-								</p>
-							</div>
+							{referralCodes.length === 0 ? (
+								<div className='flex flex-col items-center justify-center py-12 text-center'>
+									<IconUsers className='h-12 w-12 text-muted-foreground mb-4' />
+									<h3 className='text-lg font-semibold'>No Referrals Yet</h3>
+									<p className='text-sm text-muted-foreground'>
+										Referral codes will appear here once users start referring others
+									</p>
+								</div>
+							) : (
+								<div className='grid gap-4 md:grid-cols-2 lg:grid-cols-3'>
+									{referralCodes.map((referral) => (
+										<Card key={referral.id}>
+											<CardHeader>
+												<div className='flex items-start justify-between'>
+													<div>
+														<CardTitle className='text-lg flex items-center gap-2'>
+															<IconUsers className='h-5 w-5' />
+															{referral.code}
+														</CardTitle>
+														<CardDescription className='mt-1 text-xs'>
+															User ID: {referral.user_id.slice(0, 8)}...
+														</CardDescription>
+													</div>
+													<Badge variant='outline'>{referral.total_referrals} referrals</Badge>
+												</div>
+											</CardHeader>
+											<CardContent className='space-y-3'>
+												<div className='flex items-center justify-between text-sm'>
+													<span className='text-muted-foreground'>Total Referrals</span>
+													<span className='font-medium flex items-center gap-1'>
+														<IconUsers className='h-4 w-4' />
+														{referral.total_referrals}
+													</span>
+												</div>
+												<div className='flex items-center justify-between text-sm'>
+													<span className='text-muted-foreground'>Total Earnings</span>
+													<span className='font-medium flex items-center gap-1'>
+														<IconCurrencyDollar className='h-4 w-4' />
+														{formatCurrency(referral.total_earnings)}
+													</span>
+												</div>
+												<div className='flex items-center justify-between text-sm'>
+													<span className='text-muted-foreground'>Created</span>
+													<span className='font-medium flex items-center gap-1'>
+														<IconClock className='h-4 w-4' />
+														{new Date(referral.created_at).toLocaleDateString()}
+													</span>
+												</div>
+											</CardContent>
+										</Card>
+									))}
+								</div>
+							)}
 						</CardContent>
 					</Card>
 				</TabsContent>
 			</Tabs>
+
+			{/* Promo Detail Dialog */}
+			<PromoDetailDialog
+				promoId={selectedPromoId}
+				open={isSheetOpen}
+				onOpenChange={setIsSheetOpen}
+				onUpdate={fetchData}
+			/>
 		</div>
 	);
 }

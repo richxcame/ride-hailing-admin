@@ -707,7 +707,7 @@ export default function AnalyticsPage() {
 							</CardContent>
 						</Card>
 					</div>
-
+				</TabsContent>
 
 				{/* Financial Tab */}
 				<TabsContent value='financial' className='space-y-4'>
