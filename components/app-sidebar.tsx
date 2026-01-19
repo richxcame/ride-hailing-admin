@@ -94,12 +94,12 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 				name: `${user.first_name} ${user.last_name}`,
 				email: user.email,
 				avatar: user.profile_image || '/avatars/shadcn.jpg',
-		  }
+			}
 		: {
 				name: 'MonteGo Admin',
 				email: 'admin@montego.com',
 				avatar: '/avatars/shadcn.jpg',
-		  };
+			};
 
 	return (
 		<Sidebar collapsible='offExamples' {...props}>
@@ -108,7 +108,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 					<SidebarMenuItem>
 						<SidebarMenuButton
 							asChild
-							className='data-[slot=sidebar-menu-button]:!p-1.5'
+							className='data-[slot=sidebar-menu-button]:p-1.5!'
 						>
 							<a href='/dashboard'>
 								<Image

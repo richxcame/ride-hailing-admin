@@ -49,7 +49,10 @@ interface FraudAlertsTableProps {
 		offset: number;
 	};
 	onPageChange: (offset: number) => void;
-	onAlertAction?: (action: 'view' | 'investigate' | 'resolve', alertId: string) => void;
+	onAlertAction?: (
+		action: 'view' | 'investigate' | 'resolve',
+		alertId: string,
+	) => void;
 }
 
 const getLevelColor = (level: string) => {
@@ -64,11 +67,15 @@ const getLevelColor = (level: string) => {
 
 const getStatusColor = (status: string) => {
 	const colors = {
-		pending: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300',
-		investigating: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300',
+		pending:
+			'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300',
+		investigating:
+			'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300',
 		confirmed: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300',
-		false_positive: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300',
-		resolved: 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300',
+		false_positive:
+			'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300',
+		resolved:
+			'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300',
 	};
 	return colors[status as keyof typeof colors] || 'bg-gray-100 text-gray-800';
 };
@@ -97,7 +104,10 @@ function ActionCell({
 	onAlertAction,
 }: {
 	alert: FraudAlert;
-	onAlertAction?: (action: 'view' | 'investigate' | 'resolve', alertId: string) => void;
+	onAlertAction?: (
+		action: 'view' | 'investigate' | 'resolve',
+		alertId: string,
+	) => void;
 }) {
 	const handleViewDetails = () => {
 		if (onAlertAction) {
@@ -146,7 +156,8 @@ function ActionCell({
 						Mark investigating
 					</DropdownMenuItem>
 				)}
-				{(alert.status === 'pending' || alert.status === 'investigating') && (
+				{(alert.status === 'pending' ||
+					alert.status === 'investigating') && (
 					<DropdownMenuItem onSelect={handleResolve}>
 						<IconShieldCheck className='mr-2 h-4 w-4' />
 						Resolve alert
@@ -158,7 +169,10 @@ function ActionCell({
 }
 
 const createColumns = (
-	onAlertAction?: (action: 'view' | 'investigate' | 'resolve', alertId: string) => void
+	onAlertAction?: (
+		action: 'view' | 'investigate' | 'resolve',
+		alertId: string,
+	) => void,
 ): ColumnDef<FraudAlert>[] => [
 	{
 		accessorKey: 'id',
@@ -166,7 +180,7 @@ const createColumns = (
 		cell: ({ row }) => {
 			const id = row.getValue('id') as string;
 			return (
-				<div className='font-mono text-xs truncate max-w-[100px]' title={id}>
+				<div className='font-mono text-xs truncate max-w-25' title={id}>
 					{id.substring(0, 8)}...
 				</div>
 			);
@@ -179,20 +193,32 @@ const createColumns = (
 			const alert = row.original;
 			const user = alert.user;
 			if (!user) {
-				return <div className='text-sm text-muted-foreground'>Unknown User</div>;
+				return (
+					<div className='text-sm text-muted-foreground'>
+						Unknown User
+					</div>
+				);
 			}
-			const initials = `${user.first_name?.[0] || ''}${user.last_name?.[0] || ''}`.toUpperCase();
+			const initials =
+				`${user.first_name?.[0] || ''}${user.last_name?.[0] || ''}`.toUpperCase();
 			return (
 				<div className='flex items-center gap-2'>
 					<Avatar className='h-8 w-8'>
-						<AvatarImage src={user.profile_image} alt={`${user.first_name} ${user.last_name}`} />
-						<AvatarFallback className='text-xs'>{initials || 'U'}</AvatarFallback>
+						<AvatarImage
+							src={user.profile_image}
+							alt={`${user.first_name} ${user.last_name}`}
+						/>
+						<AvatarFallback className='text-xs'>
+							{initials || 'U'}
+						</AvatarFallback>
 					</Avatar>
 					<div className='flex flex-col'>
 						<span className='text-sm font-medium'>
 							{user.first_name} {user.last_name}
 						</span>
-						<span className='text-xs text-muted-foreground'>{user.email}</span>
+						<span className='text-xs text-muted-foreground'>
+							{user.email}
+						</span>
 					</div>
 				</div>
 			);
@@ -223,7 +249,13 @@ const createColumns = (
 		header: 'Risk Score',
 		cell: ({ row }) => {
 			const score = row.getValue('risk_score') as number;
-			return <div className={`text-sm font-medium ${getRiskScoreColor(score)}`}>{score}</div>;
+			return (
+				<div
+					className={`text-sm font-medium ${getRiskScoreColor(score)}`}
+				>
+					{score}
+				</div>
+			);
 		},
 	},
 	{
@@ -244,7 +276,10 @@ const createColumns = (
 		cell: ({ row }) => {
 			const description = row.getValue('description') as string;
 			return (
-				<div className='max-w-[200px] truncate text-sm text-muted-foreground' title={description}>
+				<div
+					className='max-w-50 truncate text-sm text-muted-foreground'
+					title={description}
+				>
 					{description}
 				</div>
 			);
@@ -264,7 +299,9 @@ const createColumns = (
 	},
 	{
 		id: 'actions',
-		cell: ({ row }) => <ActionCell alert={row.original} onAlertAction={onAlertAction} />,
+		cell: ({ row }) => (
+			<ActionCell alert={row.original} onAlertAction={onAlertAction} />
+		),
 	},
 ];
 
@@ -277,7 +314,10 @@ export function FraudAlertsTable({
 }: FraudAlertsTableProps) {
 	const [sorting, setSorting] = React.useState<SortingState>([]);
 
-	const columns = React.useMemo(() => createColumns(onAlertAction), [onAlertAction]);
+	const columns = React.useMemo(
+		() => createColumns(onAlertAction),
+		[onAlertAction],
+	);
 
 	const table = useReactTable({
 		data: alerts,
@@ -308,7 +348,9 @@ export function FraudAlertsTable({
 			<div className='flex flex-col items-center justify-center py-12 text-center'>
 				<IconShieldCheck className='h-12 w-12 text-muted-foreground mb-4' />
 				<h3 className='text-lg font-semibold'>No fraud alerts found</h3>
-				<p className='text-sm text-muted-foreground'>No alerts match your current filters.</p>
+				<p className='text-sm text-muted-foreground'>
+					No alerts match your current filters.
+				</p>
 			</div>
 		);
 	}
@@ -325,11 +367,17 @@ export function FraudAlertsTable({
 										{header.isPlaceholder ? null : (
 											<div
 												className={
-													header.column.getCanSort() ? 'flex items-center gap-2 cursor-pointer' : ''
+													header.column.getCanSort()
+														? 'flex items-center gap-2 cursor-pointer'
+														: ''
 												}
 												onClick={header.column.getToggleSortingHandler()}
 											>
-												{flexRender(header.column.columnDef.header, header.getContext())}
+												{flexRender(
+													header.column.columnDef
+														.header,
+													header.getContext(),
+												)}
 												{header.column.getCanSort() && (
 													<div className='flex flex-col'>
 														<IconChevronUp className='h-3 w-3' />
@@ -348,7 +396,10 @@ export function FraudAlertsTable({
 							<TableRow key={row.id}>
 								{row.getVisibleCells().map((cell) => (
 									<TableCell key={cell.id}>
-										{flexRender(cell.column.columnDef.cell, cell.getContext())}
+										{flexRender(
+											cell.column.columnDef.cell,
+											cell.getContext(),
+										)}
 									</TableCell>
 								))}
 							</TableRow>
@@ -361,14 +412,22 @@ export function FraudAlertsTable({
 			{totalPages > 1 && (
 				<div className='flex items-center justify-between'>
 					<p className='text-sm text-muted-foreground'>
-						Showing {pagination.offset + 1} to {Math.min(pagination.offset + pagination.limit, pagination.total)} of{' '}
-						{pagination.total} alerts
+						Showing {pagination.offset + 1} to{' '}
+						{Math.min(
+							pagination.offset + pagination.limit,
+							pagination.total,
+						)}{' '}
+						of {pagination.total} alerts
 					</p>
 					<div className='flex items-center gap-2'>
 						<Button
 							variant='outline'
 							size='sm'
-							onClick={() => onPageChange(pagination.offset - pagination.limit)}
+							onClick={() =>
+								onPageChange(
+									pagination.offset - pagination.limit,
+								)
+							}
 							disabled={currentPage === 1}
 						>
 							Previous
@@ -379,7 +438,11 @@ export function FraudAlertsTable({
 						<Button
 							variant='outline'
 							size='sm'
-							onClick={() => onPageChange(pagination.offset + pagination.limit)}
+							onClick={() =>
+								onPageChange(
+									pagination.offset + pagination.limit,
+								)
+							}
 							disabled={currentPage === totalPages}
 						>
 							Next

@@ -62,10 +62,14 @@ const formatCurrency = (value: number) => {
 
 const getStatusColor = (status: string) => {
 	const colors = {
-		requested: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300',
-		accepted: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300',
-		in_progress: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300',
-		completed: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300',
+		requested:
+			'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300',
+		accepted:
+			'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300',
+		in_progress:
+			'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300',
+		completed:
+			'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300',
 		cancelled: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300',
 	};
 	return colors[status as keyof typeof colors] || 'bg-gray-100 text-gray-800';
@@ -78,7 +82,11 @@ const createColumns = (): ColumnDef<Ride>[] => [
 		header: 'Ride ID',
 		cell: ({ row }) => {
 			const id = row.getValue('id') as string;
-			return <span className='font-mono text-xs'>{id.substring(0, 8)}...</span>;
+			return (
+				<span className='font-mono text-xs'>
+					{id.substring(0, 8)}...
+				</span>
+			);
 		},
 	},
 	{
@@ -89,7 +97,10 @@ const createColumns = (): ColumnDef<Ride>[] => [
 			return ride.rider ? (
 				<div className='flex items-center gap-2'>
 					<Avatar className='h-8 w-8'>
-						<AvatarImage src={ride.rider.profile_image} alt={ride.rider.first_name} />
+						<AvatarImage
+							src={ride.rider.profile_image}
+							alt={ride.rider.first_name}
+						/>
 						<AvatarFallback className='text-xs bg-primary/10'>
 							{ride.rider.first_name?.charAt(0)}
 							{ride.rider.last_name?.charAt(0)}
@@ -99,7 +110,9 @@ const createColumns = (): ColumnDef<Ride>[] => [
 						<span className='font-medium text-sm'>
 							{ride.rider.first_name} {ride.rider.last_name}
 						</span>
-						<span className='text-xs text-muted-foreground'>{ride.rider.phone_number}</span>
+						<span className='text-xs text-muted-foreground'>
+							{ride.rider.phone_number}
+						</span>
 					</div>
 				</div>
 			) : (
@@ -115,7 +128,10 @@ const createColumns = (): ColumnDef<Ride>[] => [
 			return ride.driver ? (
 				<div className='flex items-center gap-2'>
 					<Avatar className='h-8 w-8'>
-						<AvatarImage src={ride.driver.profile_image} alt={ride.driver.first_name} />
+						<AvatarImage
+							src={ride.driver.profile_image}
+							alt={ride.driver.first_name}
+						/>
 						<AvatarFallback className='text-xs bg-primary/10'>
 							{ride.driver.first_name?.charAt(0)}
 							{ride.driver.last_name?.charAt(0)}
@@ -125,7 +141,9 @@ const createColumns = (): ColumnDef<Ride>[] => [
 						<span className='font-medium text-sm'>
 							{ride.driver.first_name} {ride.driver.last_name}
 						</span>
-						<span className='text-xs text-muted-foreground'>{ride.driver.phone_number}</span>
+						<span className='text-xs text-muted-foreground'>
+							{ride.driver.phone_number}
+						</span>
 					</div>
 				</div>
 			) : (
@@ -139,14 +157,18 @@ const createColumns = (): ColumnDef<Ride>[] => [
 		cell: ({ row }) => {
 			const ride = row.original;
 			return (
-				<div className='flex max-w-[200px] flex-col gap-1 text-xs'>
+				<div className='flex max-w-50 flex-col gap-1 text-xs'>
 					<div className='flex items-start gap-1'>
 						<IconMapPin className='mt-0.5 h-3 w-3 shrink-0 text-green-600' />
-						<span className='line-clamp-1'>{ride.pickup_address}</span>
+						<span className='line-clamp-1'>
+							{ride.pickup_address}
+						</span>
 					</div>
 					<div className='flex items-start gap-1'>
 						<IconMapPin className='mt-0.5 h-3 w-3 shrink-0 text-red-600' />
-						<span className='line-clamp-1'>{ride.dropoff_address}</span>
+						<span className='line-clamp-1'>
+							{ride.dropoff_address}
+						</span>
 					</div>
 				</div>
 			);
@@ -158,7 +180,9 @@ const createColumns = (): ColumnDef<Ride>[] => [
 			return (
 				<Button
 					variant='ghost'
-					onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
+					onClick={() =>
+						column.toggleSorting(column.getIsSorted() === 'asc')
+					}
 				>
 					Status
 					{column.getIsSorted() === 'asc' ? (
@@ -184,7 +208,9 @@ const createColumns = (): ColumnDef<Ride>[] => [
 			return (
 				<Button
 					variant='ghost'
-					onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
+					onClick={() =>
+						column.toggleSorting(column.getIsSorted() === 'asc')
+					}
 				>
 					Fare
 					{column.getIsSorted() === 'asc' ? (
@@ -212,7 +238,9 @@ const createColumns = (): ColumnDef<Ride>[] => [
 			return (
 				<div className='flex items-center gap-1'>
 					<IconStar className='h-4 w-4 fill-yellow-400 text-yellow-400' />
-					<span className='font-medium text-sm'>{ride.rating.toFixed(1)}</span>
+					<span className='font-medium text-sm'>
+						{ride.rating.toFixed(1)}
+					</span>
 				</div>
 			);
 		},
@@ -223,7 +251,9 @@ const createColumns = (): ColumnDef<Ride>[] => [
 			return (
 				<Button
 					variant='ghost'
-					onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
+					onClick={() =>
+						column.toggleSorting(column.getIsSorted() === 'asc')
+					}
 				>
 					Time
 					{column.getIsSorted() === 'asc' ? (
@@ -239,7 +269,9 @@ const createColumns = (): ColumnDef<Ride>[] => [
 			return (
 				<div className='flex flex-col text-xs'>
 					<span>{date.toLocaleDateString()}</span>
-					<span className='text-muted-foreground'>{date.toLocaleTimeString()}</span>
+					<span className='text-muted-foreground'>
+						{date.toLocaleTimeString()}
+					</span>
 				</div>
 			);
 		},
@@ -286,7 +318,9 @@ function ActionCell({
 			</DropdownMenuTrigger>
 			<DropdownMenuContent align='end'>
 				<DropdownMenuLabel>Actions</DropdownMenuLabel>
-				<DropdownMenuItem onClick={() => navigator.clipboard.writeText(ride.id)}>
+				<DropdownMenuItem
+					onClick={() => navigator.clipboard.writeText(ride.id)}
+				>
 					Copy ride ID
 				</DropdownMenuItem>
 				<DropdownMenuSeparator />
@@ -301,7 +335,10 @@ function ActionCell({
 				{canCancel && (
 					<>
 						<DropdownMenuSeparator />
-						<DropdownMenuItem onSelect={handleCancelRide} className='text-destructive'>
+						<DropdownMenuItem
+							onSelect={handleCancelRide}
+							className='text-destructive'
+						>
 							<IconX className='mr-2 h-4 w-4' />
 							Cancel ride
 						</DropdownMenuItem>
@@ -360,7 +397,11 @@ export function RidesTable({
 									<TableHead key={header.id}>
 										{header.isPlaceholder
 											? null
-											: flexRender(header.column.columnDef.header, header.getContext())}
+											: flexRender(
+													header.column.columnDef
+														.header,
+													header.getContext(),
+												)}
 									</TableHead>
 								))}
 							</TableRow>
@@ -373,9 +414,15 @@ export function RidesTable({
 									{row.getVisibleCells().map((cell) => (
 										<TableCell key={cell.id}>
 											{cell.column.id === 'actions' ? (
-												<ActionCell ride={row.original} onRideAction={onRideAction} />
+												<ActionCell
+													ride={row.original}
+													onRideAction={onRideAction}
+												/>
 											) : (
-												flexRender(cell.column.columnDef.cell, cell.getContext())
+												flexRender(
+													cell.column.columnDef.cell,
+													cell.getContext(),
+												)
 											)}
 										</TableCell>
 									))}
@@ -383,7 +430,10 @@ export function RidesTable({
 							))
 						) : (
 							<TableRow>
-								<TableCell colSpan={columns.length} className='h-24 text-center'>
+								<TableCell
+									colSpan={columns.length}
+									className='h-24 text-center'
+								>
 									No rides found.
 								</TableCell>
 							</TableRow>
@@ -395,14 +445,24 @@ export function RidesTable({
 			<div className='flex items-center justify-between'>
 				<div className='text-sm text-muted-foreground'>
 					Showing {pagination.offset + 1} to{' '}
-					{Math.min(pagination.offset + pagination.limit, pagination.total)} of {pagination.total}{' '}
-					rides
+					{Math.min(
+						pagination.offset + pagination.limit,
+						pagination.total,
+					)}{' '}
+					of {pagination.total} rides
 				</div>
 				<div className='flex gap-2'>
 					<Button
 						variant='outline'
 						size='sm'
-						onClick={() => onPageChange(Math.max(0, pagination.offset - pagination.limit))}
+						onClick={() =>
+							onPageChange(
+								Math.max(
+									0,
+									pagination.offset - pagination.limit,
+								),
+							)
+						}
 						disabled={pagination.offset === 0}
 					>
 						Previous
@@ -415,8 +475,13 @@ export function RidesTable({
 					<Button
 						variant='outline'
 						size='sm'
-						onClick={() => onPageChange(pagination.offset + pagination.limit)}
-						disabled={pagination.offset + pagination.limit >= pagination.total}
+						onClick={() =>
+							onPageChange(pagination.offset + pagination.limit)
+						}
+						disabled={
+							pagination.offset + pagination.limit >=
+							pagination.total
+						}
 					>
 						Next
 					</Button>
