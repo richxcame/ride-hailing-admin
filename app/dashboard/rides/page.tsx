@@ -41,6 +41,7 @@ import {
 	AlertDialogHeader,
 	AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { DatePicker } from '@/components/date-picker';
 
 interface RideStats {
 	total_rides: number;
@@ -63,8 +64,8 @@ export default function RidesPage() {
 	});
 
 	// Date range filters
-	const [startDate, setStartDate] = useState<string>('');
-	const [endDate, setEndDate] = useState<string>('');
+	const [startDate, setStartDate] = useState<Date | undefined>(undefined);
+	const [endDate, setEndDate] = useState<Date | undefined>(undefined);
 
 	// Detail sheet state
 	const [selectedRide, setSelectedRide] = useState<Ride | null>(null);
@@ -81,8 +82,8 @@ export default function RidesPage() {
 				limit: pagination.limit,
 				offset: pagination.offset,
 				...(statusFilter !== 'all' && { status: statusFilter }),
-				...(startDate && { start_date: startDate }),
-				...(endDate && { end_date: endDate }),
+				...(startDate && { start_date: startDate.toISOString().split('T')[0] }),
+				...(endDate && { end_date: endDate.toISOString().split('T')[0] }),
 			});
 			setRides(response.data);
 			setPagination((prev) => ({ ...prev, total: response.meta.total }));
@@ -97,8 +98,8 @@ export default function RidesPage() {
 	const fetchStats = async () => {
 		try {
 			const rideStats = await adminService.getRideStats({
-				...(startDate && { start_date: startDate }),
-				...(endDate && { end_date: endDate }),
+				...(startDate && { start_date: startDate.toISOString().split('T')[0] }),
+				...(endDate && { end_date: endDate.toISOString().split('T')[0] }),
 			});
 			setStats(rideStats);
 		} catch (error) {
@@ -172,8 +173,8 @@ export default function RidesPage() {
 
 	const handleClearFilters = () => {
 		setStatusFilter('all');
-		setStartDate('');
-		setEndDate('');
+		setStartDate(undefined);
+		setEndDate(undefined);
 		setPagination((prev) => ({ ...prev, offset: 0 }));
 	};
 
@@ -301,36 +302,18 @@ export default function RidesPage() {
 					<div className='flex flex-col sm:flex-row gap-3'>
 						{/* Date Range Filters */}
 						<div className='flex items-center gap-2'>
-							<div className='flex flex-col gap-1'>
-								<Label htmlFor='start-date' className='text-xs text-muted-foreground'>
-									Start Date
-								</Label>
-								<div className='relative'>
-									<IconCalendar className='absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground' />
-									<Input
-										id='start-date'
-										type='date'
-										value={startDate}
-										onChange={(e) => setStartDate(e.target.value)}
-										className='pl-9 w-[150px]'
-									/>
-								</div>
-							</div>
-							<div className='flex flex-col gap-1'>
-								<Label htmlFor='end-date' className='text-xs text-muted-foreground'>
-									End Date
-								</Label>
-								<div className='relative'>
-									<IconCalendar className='absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground' />
-									<Input
-										id='end-date'
-										type='date'
-										value={endDate}
-										onChange={(e) => setEndDate(e.target.value)}
-										className='pl-9 w-[150px]'
-									/>
-								</div>
-							</div>
+							<DatePicker
+								date={startDate}
+								setDate={setStartDate}
+								label={<span className='text-xs text-muted-foreground'>Start Date</span>}
+								placeholder='Select start date'
+							/>
+							<DatePicker
+								date={endDate}
+								setDate={setEndDate}
+								label={<span className='text-xs text-muted-foreground'>End Date</span>}
+								placeholder='Select end date'
+							/>
 						</div>
 
 						{/* Status Filter */}

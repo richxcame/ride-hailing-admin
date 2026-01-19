@@ -23,13 +23,14 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import { DatePicker } from '@/components/date-picker';
 
 export default function FraudStatisticsPage() {
 	const [isLoading, setIsLoading] = useState(true);
-	const [dateRange, setDateRange] = useState({
-		start: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-		end: new Date().toISOString().split('T')[0],
-	});
+	const [startDate, setStartDate] = useState<Date | undefined>(
+		new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+	);
+	const [endDate, setEndDate] = useState<Date | undefined>(new Date());
 	const [statistics, setStatistics] = useState<FraudStatistics | null>(null);
 	const [patterns, setPatterns] = useState<FraudPattern[]>([]);
 
@@ -37,8 +38,8 @@ export default function FraudStatisticsPage() {
 		try {
 			setIsLoading(true);
 			const params = {
-				start_date: dateRange.start,
-				end_date: dateRange.end,
+				start_date: startDate?.toISOString().split('T')[0] || '',
+				end_date: endDate?.toISOString().split('T')[0] || '',
 			};
 
 			const [statsData, patternsData] = await Promise.all([
@@ -54,7 +55,7 @@ export default function FraudStatisticsPage() {
 		} finally {
 			setIsLoading(false);
 		}
-	}, [dateRange]);
+	}, [startDate, endDate]);
 
 	useEffect(() => {
 		fetchData();
@@ -129,36 +130,18 @@ export default function FraudStatisticsPage() {
 				</div>
 				<div className='flex items-center gap-2'>
 					<div className='flex items-center gap-2'>
-						<div className='flex flex-col gap-1'>
-							<Label htmlFor='start-date' className='text-xs text-muted-foreground'>
-								Start Date
-							</Label>
-							<div className='relative'>
-								<IconCalendar className='absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground' />
-								<Input
-									id='start-date'
-									type='date'
-									value={dateRange.start}
-									onChange={(e) => setDateRange((prev) => ({ ...prev, start: e.target.value }))}
-									className='pl-9 w-[150px]'
-								/>
-							</div>
-						</div>
-						<div className='flex flex-col gap-1'>
-							<Label htmlFor='end-date' className='text-xs text-muted-foreground'>
-								End Date
-							</Label>
-							<div className='relative'>
-								<IconCalendar className='absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground' />
-								<Input
-									id='end-date'
-									type='date'
-									value={dateRange.end}
-									onChange={(e) => setDateRange((prev) => ({ ...prev, end: e.target.value }))}
-									className='pl-9 w-[150px]'
-								/>
-							</div>
-						</div>
+						<DatePicker
+							date={startDate}
+							setDate={setStartDate}
+							label={<span className='text-xs text-muted-foreground'>Start Date</span>}
+							placeholder='Select start date'
+						/>
+						<DatePicker
+							date={endDate}
+							setDate={setEndDate}
+							label={<span className='text-xs text-muted-foreground'>End Date</span>}
+							placeholder='Select end date'
+						/>
 					</div>
 					<Button variant='outline' size='sm' onClick={fetchData} className='mt-5'>
 						<IconRefresh className='h-4 w-4' />

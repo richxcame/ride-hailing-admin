@@ -13,7 +13,7 @@ import { Label } from '@/components/ui/label';
 interface DateTimePickerProps {
 	date: Date | undefined;
 	setDate: (date: Date | undefined) => void;
-	label?: string;
+	label?: string | React.ReactNode;
 	placeholder?: string;
 }
 
