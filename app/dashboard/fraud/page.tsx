@@ -4,17 +4,24 @@ import { useEffect, useState, useCallback } from 'react';
 import { toast } from 'sonner';
 import {
 	IconAlertTriangle,
+	IconChartBar,
 	IconFilter,
 	IconRefresh,
 	IconShieldCheck,
-	IconPlus,
 } from '@tabler/icons-react';
+import Link from 'next/link';
 import { fraudService } from '@/lib/api/fraud.service';
 import { FraudAlert } from '@/lib/types/models';
 import { FraudAlertsTable } from '@/components/fraud-alerts-table';
 import { FraudAlertDetailSheet } from '@/components/fraud-alert-detail-sheet';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+	Card,
+	CardContent,
+	CardDescription,
+	CardHeader,
+	CardTitle,
+} from '@/components/ui/card';
 import {
 	Select,
 	SelectContent,
@@ -22,7 +29,6 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from '@/components/ui/select';
-import { Skeleton } from '@/components/ui/skeleton';
 
 export default function FraudAlertsPage() {
 	const [alerts, setAlerts] = useState<FraudAlert[]>([]);
@@ -55,9 +61,12 @@ export default function FraudAlertsPage() {
 				offset: pagination.offset,
 			};
 
-			if (filters.status) params.status = filters.status;
-			if (filters.alert_level) params.alert_level = filters.alert_level;
-			if (filters.alert_type) params.alert_type = filters.alert_type;
+			if (filters.status && filters.status !== 'all')
+				params.status = filters.status;
+			if (filters.alert_level && filters.alert_level !== 'all')
+				params.alert_level = filters.alert_level;
+			if (filters.alert_type && filters.alert_type !== 'all')
+				params.alert_type = filters.alert_type;
 
 			const response = await fraudService.getAlerts(params);
 			setAlerts(response.data);
@@ -66,25 +75,67 @@ export default function FraudAlertsPage() {
 				total: response.meta.total,
 			}));
 
-			// Calculate stats from the data
-			const totalAlerts = response.meta.total;
-			const pendingCount = response.data.filter((a) => a.status === 'pending').length;
-			const investigatingCount = response.data.filter((a) => a.status === 'investigating').length;
-			const resolvedCount = response.data.filter(
-				(a) => a.status === 'confirmed' || a.status === 'false_positive' || a.status === 'resolved'
-			).length;
-			const criticalCount = response.data.filter((a) => a.alert_level === 'critical').length;
-
-			setStats({
-				total_alerts: totalAlerts,
-				pending_alerts: pendingCount,
-				investigating_alerts: investigatingCount,
-				resolved_alerts: resolvedCount,
-				critical_alerts: criticalCount,
-			});
+			// Use stats from API meta if available, otherwise fetch separately
+			const meta = response.meta as {
+				total: number;
+				stats?: Record<string, number>;
+			};
+			if (meta.stats) {
+				setStats({
+					total_alerts: meta.total,
+					pending_alerts: meta.stats.pending ?? 0,
+					investigating_alerts: meta.stats.investigating ?? 0,
+					resolved_alerts: meta.stats.resolved ?? 0,
+					critical_alerts: meta.stats.critical ?? 0,
+				});
+			} else {
+				try {
+					const statsData =
+						(await fraudService.getStatistics()) as unknown as Record<
+							string,
+							unknown
+						>;
+					setStats({
+						total_alerts: meta.total,
+						pending_alerts:
+							(statsData.pending_alerts as number) ?? 0,
+						investigating_alerts:
+							(statsData.investigating_alerts as number) ?? 0,
+						resolved_alerts:
+							(statsData.resolved_alerts as number) ?? 0,
+						critical_alerts:
+							(statsData.critical_alerts as number) ?? 0,
+					});
+				} catch {
+					// Fallback: estimate from current page (less accurate for large datasets)
+					setStats({
+						total_alerts: meta.total,
+						pending_alerts: response.data.filter(
+							(a) => a.status === 'pending',
+						).length,
+						investigating_alerts: response.data.filter(
+							(a) => a.status === 'investigating',
+						).length,
+						resolved_alerts: response.data.filter(
+							(a) =>
+								a.status === 'confirmed' ||
+								a.status === 'false_positive' ||
+								a.status === 'resolved',
+						).length,
+						critical_alerts: response.data.filter(
+							(a) => a.alert_level === 'critical',
+						).length,
+					});
+				}
+			}
 		} catch (error) {
-			const errorMessage = error instanceof Error ? error.message : 'Failed to load fraud alerts';
-			toast.error('Failed to load fraud alerts', { description: errorMessage });
+			const errorMessage =
+				error instanceof Error
+					? error.message
+					: 'Failed to load fraud alerts';
+			toast.error('Failed to load fraud alerts', {
+				description: errorMessage,
+			});
 		} finally {
 			setIsLoading(false);
 		}
@@ -98,7 +149,10 @@ export default function FraudAlertsPage() {
 		setPagination((prev) => ({ ...prev, offset: newOffset }));
 	};
 
-	const handleAlertAction = async (action: 'view' | 'investigate' | 'resolve', alertId: string) => {
+	const handleAlertAction = async (
+		action: 'view' | 'investigate' | 'resolve',
+		alertId: string,
+	) => {
 		const alert = alerts.find((a) => a.id === alertId);
 		if (!alert) return;
 
@@ -120,24 +174,37 @@ export default function FraudAlertsPage() {
 	};
 
 	const handleInvestigate = async (alertId: string, notes?: string) => {
-		await fraudService.investigateAlert(alertId, notes ? { notes } : undefined);
-		fetchAlerts();
-		setIsSheetOpen(false);
+		try {
+			await fraudService.investigateAlert(
+				alertId,
+				notes ? { notes } : undefined,
+			);
+			toast.success('Alert marked as investigating');
+			fetchAlerts();
+			setIsSheetOpen(false);
+		} catch {
+			toast.error('Failed to update alert status');
+		}
 	};
 
 	const handleResolve = async (
 		alertId: string,
 		status: 'confirmed' | 'false_positive',
 		actionTaken?: string,
-		notes?: string
+		notes?: string,
 	) => {
-		await fraudService.resolveAlert(alertId, {
-			status,
-			action_taken: actionTaken,
-			notes,
-		});
-		fetchAlerts();
-		setIsSheetOpen(false);
+		try {
+			await fraudService.resolveAlert(alertId, {
+				status,
+				action_taken: actionTaken,
+				notes,
+			});
+			toast.success('Alert resolved successfully');
+			fetchAlerts();
+			setIsSheetOpen(false);
+		} catch {
+			toast.error('Failed to resolve alert');
+		}
 	};
 
 	const clearFilters = () => {
@@ -149,19 +216,30 @@ export default function FraudAlertsPage() {
 		setPagination((prev) => ({ ...prev, offset: 0 }));
 	};
 
-	const hasActiveFilters = filters.status || filters.alert_level || filters.alert_type;
+	const hasActiveFilters =
+		(filters.status && filters.status !== 'all') ||
+		(filters.alert_level && filters.alert_level !== 'all') ||
+		(filters.alert_type && filters.alert_type !== 'all');
 
 	return (
 		<div className='flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6'>
 			{/* Header */}
 			<div className='flex flex-col sm:flex-row sm:items-center justify-between gap-4'>
 				<div>
-					<h1 className='text-2xl font-semibold tracking-tight'>Fraud Alerts</h1>
+					<h1 className='text-2xl font-semibold tracking-tight'>
+						Fraud Alerts
+					</h1>
 					<p className='text-sm text-muted-foreground'>
 						Monitor and investigate fraud detection alerts
 					</p>
 				</div>
 				<div className='flex items-center gap-2'>
+					<Button variant='outline' size='sm' asChild>
+						<Link href='/dashboard/fraud/statistics'>
+							<IconChartBar className='mr-2 h-4 w-4' />
+							Statistics
+						</Link>
+					</Button>
 					<Button variant='outline' size='sm' onClick={fetchAlerts}>
 						<IconRefresh className='h-4 w-4' />
 					</Button>
@@ -176,7 +254,9 @@ export default function FraudAlertsPage() {
 						<IconAlertTriangle className='h-4 w-4 text-muted-foreground' />
 					</CardHeader>
 					<CardContent>
-						<div className='text-2xl font-bold'>{stats.total_alerts}</div>
+						<div className='text-2xl font-bold'>
+							{stats.total_alerts}
+						</div>
 					</CardContent>
 				</Card>
 
@@ -186,8 +266,12 @@ export default function FraudAlertsPage() {
 						<IconAlertTriangle className='h-4 w-4 text-blue-600' />
 					</CardHeader>
 					<CardContent>
-						<div className='text-2xl font-bold text-blue-600'>{stats.pending_alerts}</div>
-						<p className='text-xs text-muted-foreground mt-1'>Awaiting review</p>
+						<div className='text-2xl font-bold text-blue-600'>
+							{stats.pending_alerts}
+						</div>
+						<p className='text-xs text-muted-foreground mt-1'>
+							Awaiting review
+						</p>
 					</CardContent>
 				</Card>
 
@@ -197,8 +281,12 @@ export default function FraudAlertsPage() {
 						<IconAlertTriangle className='h-4 w-4 text-purple-600' />
 					</CardHeader>
 					<CardContent>
-						<div className='text-2xl font-bold text-purple-600'>{stats.investigating_alerts}</div>
-						<p className='text-xs text-muted-foreground mt-1'>Under review</p>
+						<div className='text-2xl font-bold text-purple-600'>
+							{stats.investigating_alerts}
+						</div>
+						<p className='text-xs text-muted-foreground mt-1'>
+							Under review
+						</p>
 					</CardContent>
 				</Card>
 
@@ -208,8 +296,12 @@ export default function FraudAlertsPage() {
 						<IconAlertTriangle className='h-4 w-4 text-red-600' />
 					</CardHeader>
 					<CardContent>
-						<div className='text-2xl font-bold text-red-600'>{stats.critical_alerts}</div>
-						<p className='text-xs text-muted-foreground mt-1'>High priority</p>
+						<div className='text-2xl font-bold text-red-600'>
+							{stats.critical_alerts}
+						</div>
+						<p className='text-xs text-muted-foreground mt-1'>
+							High priority
+						</p>
 					</CardContent>
 				</Card>
 
@@ -219,8 +311,12 @@ export default function FraudAlertsPage() {
 						<IconShieldCheck className='h-4 w-4 text-green-600' />
 					</CardHeader>
 					<CardContent>
-						<div className='text-2xl font-bold text-green-600'>{stats.resolved_alerts}</div>
-						<p className='text-xs text-muted-foreground mt-1'>Completed</p>
+						<div className='text-2xl font-bold text-green-600'>
+							{stats.resolved_alerts}
+						</div>
+						<p className='text-xs text-muted-foreground mt-1'>
+							Completed
+						</p>
 					</CardContent>
 				</Card>
 			</div>
@@ -236,76 +332,137 @@ export default function FraudAlertsPage() {
 				<CardContent>
 					<div className='grid gap-4 md:grid-cols-4'>
 						<div className='space-y-2'>
-							<label className='text-sm font-medium'>Status</label>
+							<label className='text-sm font-medium'>
+								Status
+							</label>
 							<Select
 								value={filters.status}
 								onValueChange={(value) => {
-									setFilters((prev) => ({ ...prev, status: value }));
-									setPagination((prev) => ({ ...prev, offset: 0 }));
+									setFilters((prev) => ({
+										...prev,
+										status: value,
+									}));
+									setPagination((prev) => ({
+										...prev,
+										offset: 0,
+									}));
 								}}
 							>
 								<SelectTrigger>
 									<SelectValue placeholder='All statuses' />
 								</SelectTrigger>
 								<SelectContent>
-									<SelectItem value=' '>All statuses</SelectItem>
-									<SelectItem value='pending'>Pending</SelectItem>
-									<SelectItem value='investigating'>Investigating</SelectItem>
-									<SelectItem value='confirmed'>Confirmed</SelectItem>
-									<SelectItem value='false_positive'>False Positive</SelectItem>
-									<SelectItem value='resolved'>Resolved</SelectItem>
+									<SelectItem value='all'>
+										All statuses
+									</SelectItem>
+									<SelectItem value='pending'>
+										Pending
+									</SelectItem>
+									<SelectItem value='investigating'>
+										Investigating
+									</SelectItem>
+									<SelectItem value='confirmed'>
+										Confirmed
+									</SelectItem>
+									<SelectItem value='false_positive'>
+										False Positive
+									</SelectItem>
+									<SelectItem value='resolved'>
+										Resolved
+									</SelectItem>
 								</SelectContent>
 							</Select>
 						</div>
 
 						<div className='space-y-2'>
-							<label className='text-sm font-medium'>Severity Level</label>
+							<label className='text-sm font-medium'>
+								Severity Level
+							</label>
 							<Select
 								value={filters.alert_level}
 								onValueChange={(value) => {
-									setFilters((prev) => ({ ...prev, alert_level: value }));
-									setPagination((prev) => ({ ...prev, offset: 0 }));
+									setFilters((prev) => ({
+										...prev,
+										alert_level: value,
+									}));
+									setPagination((prev) => ({
+										...prev,
+										offset: 0,
+									}));
 								}}
 							>
 								<SelectTrigger>
 									<SelectValue placeholder='All levels' />
 								</SelectTrigger>
 								<SelectContent>
-									<SelectItem value=' '>All levels</SelectItem>
+									<SelectItem value='all'>
+										All levels
+									</SelectItem>
 									<SelectItem value='low'>Low</SelectItem>
-									<SelectItem value='medium'>Medium</SelectItem>
+									<SelectItem value='medium'>
+										Medium
+									</SelectItem>
 									<SelectItem value='high'>High</SelectItem>
-									<SelectItem value='critical'>Critical</SelectItem>
+									<SelectItem value='critical'>
+										Critical
+									</SelectItem>
 								</SelectContent>
 							</Select>
 						</div>
 
 						<div className='space-y-2'>
-							<label className='text-sm font-medium'>Alert Type</label>
+							<label className='text-sm font-medium'>
+								Alert Type
+							</label>
 							<Select
 								value={filters.alert_type}
 								onValueChange={(value) => {
-									setFilters((prev) => ({ ...prev, alert_type: value }));
-									setPagination((prev) => ({ ...prev, offset: 0 }));
+									setFilters((prev) => ({
+										...prev,
+										alert_type: value,
+									}));
+									setPagination((prev) => ({
+										...prev,
+										offset: 0,
+									}));
 								}}
 							>
 								<SelectTrigger>
 									<SelectValue placeholder='All types' />
 								</SelectTrigger>
 								<SelectContent>
-									<SelectItem value=' '>All types</SelectItem>
-									<SelectItem value='payment_fraud'>Payment Fraud</SelectItem>
-									<SelectItem value='account_fraud'>Account Fraud</SelectItem>
-									<SelectItem value='location_fraud'>Location Fraud</SelectItem>
-									<SelectItem value='ride_fraud'>Ride Fraud</SelectItem>
-									<SelectItem value='rating_manipulation'>Rating Manipulation</SelectItem>
-									<SelectItem value='promo_abuse'>Promo Abuse</SelectItem>
+									<SelectItem value='all'>
+										All types
+									</SelectItem>
+									<SelectItem value='payment_fraud'>
+										Payment Fraud
+									</SelectItem>
+									<SelectItem value='account_fraud'>
+										Account Fraud
+									</SelectItem>
+									<SelectItem value='location_fraud'>
+										Location Fraud
+									</SelectItem>
+									<SelectItem value='ride_fraud'>
+										Ride Fraud
+									</SelectItem>
+									<SelectItem value='rating_manipulation'>
+										Rating Manipulation
+									</SelectItem>
+									<SelectItem value='promo_abuse'>
+										Promo Abuse
+									</SelectItem>
 								</SelectContent>
 							</Select>
 						</div>
 
 						<div className='flex items-end'>
-							<Button variant='outline' onClick={clearFilters} disabled={!hasActiveFilters} className='w-full'>
+							<Button
+								variant='outline'
+								onClick={clearFilters}
+								disabled={!hasActiveFilters}
+								className='w-full'
+							>
 								Clear Filters
 							</Button>
 						</div>
