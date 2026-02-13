@@ -20,6 +20,7 @@ export interface PaginationMeta {
   offset: number;
   total: number;
   total_pages: number;
+  stats?: Record<string, any>; // Optional stats object for endpoints that include statistics
 }
 
 // Paginated response (new format with meta)
@@ -74,6 +75,8 @@ export interface AuthResponse {
     is_active: boolean;
     is_verified: boolean;
     profile_image?: string;
+    created_at: string;
+    updated_at: string;
   };
 }
 
@@ -127,7 +130,7 @@ export interface RejectDriverRequest {
 // Promo request types
 export interface CreatePromoRequest {
   code: string;
-  discount_type: 'percentage' | 'fixed';
+  discount_type: 'percentage' | 'fixed_amount';
   discount_value: number;
   max_uses: number;
   expiry_date: string;

@@ -1,5 +1,5 @@
 import { api, promosClient } from './client';
-import { PromoCode, RideType, PromoCodeValidation } from '@/lib/types/models';
+import { PromoCode, PromoRideType, PromoCodeValidation } from '@/lib/types/models';
 
 /**
  * Promo Service API Client
@@ -10,8 +10,8 @@ export const promoService = {
    * Get all ride types (public endpoint)
    * GET /api/v1/ride-types
    */
-  getRideTypes: async (): Promise<RideType[]> => {
-    return api.get<RideType[]>(promosClient, '/api/v1/ride-types');
+  getRideTypes: async (): Promise<PromoRideType[]> => {
+    return api.get<PromoRideType[]>(promosClient, '/api/v1/ride-types');
   },
 
   /**

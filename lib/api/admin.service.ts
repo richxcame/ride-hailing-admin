@@ -16,6 +16,17 @@ import {
   DashboardSummary,
   RevenueTrend,
   ActivityFeedItem,
+  AnalyticsDashboard,
+  RevenueAnalytics,
+  RevenueTimeseriesData,
+  RideTypeAnalytics,
+  HourlyRideData,
+  RidesMetrics,
+  DriversPerformance,
+  RidersGrowth,
+  TopDriver,
+  FinancialReport,
+  AnalyticsComparison,
 } from '@/lib/types/models';
 
 /**
@@ -39,7 +50,7 @@ export const adminService = {
   getUsers: async (
     params?: PaginationParams & {
       role?: string;
-      is_active?: boolean;
+      status?: 'active' | 'inactive';
       search?: string;
     }
   ): Promise<PaginatedResponse<User>> => {
@@ -88,8 +99,7 @@ export const adminService = {
    */
   getDrivers: async (
     params?: PaginationParams & {
-      is_online?: boolean;
-      is_available?: boolean;
+      status?: 'online' | 'offline' | 'available' | 'pending';
       search?: string;
     }
   ): Promise<PaginatedResponse<Driver>> => {
@@ -173,6 +183,14 @@ export const adminService = {
    */
   getRide: async (rideId: string): Promise<Ride> => {
     return api.get<Ride>(adminClient, `/api/v1/admin/rides/${rideId}`);
+  },
+
+  /**
+   * Cancel a ride (admin force-cancel)
+   * POST /api/v1/admin/rides/:id/cancel
+   */
+  cancelRide: async (rideId: string, data?: { reason?: string }): Promise<Ride> => {
+    return api.post<Ride>(adminClient, `/api/v1/admin/rides/${rideId}/cancel`, data);
   },
 
   /**
@@ -287,16 +305,16 @@ export const adminService = {
    * Get analytics dashboard overview
    * GET /api/v1/analytics/dashboard
    */
-  getAnalyticsDashboard: async (): Promise<any> => {
-    return api.get(analyticsClient, '/api/v1/analytics/dashboard');
+  getAnalyticsDashboard: async (): Promise<AnalyticsDashboard> => {
+    return api.get<AnalyticsDashboard>(analyticsClient, '/api/v1/analytics/dashboard');
   },
 
   /**
    * Get revenue analytics
    * GET /api/v1/analytics/revenue
    */
-  getAnalyticsRevenue: async (params?: { start_date?: string; end_date?: string }): Promise<any> => {
-    return api.get(analyticsClient, '/api/v1/analytics/revenue', params);
+  getAnalyticsRevenue: async (params?: { start_date?: string; end_date?: string }): Promise<RevenueAnalytics> => {
+    return api.get<RevenueAnalytics>(analyticsClient, '/api/v1/analytics/revenue', params);
   },
 
   /**
@@ -307,8 +325,8 @@ export const adminService = {
     start_date?: string;
     end_date?: string;
     granularity?: 'day' | 'week' | 'month';
-  }): Promise<any> => {
-    return api.get(analyticsClient, '/api/v1/analytics/revenue/timeseries', params);
+  }): Promise<RevenueTimeseriesData[]> => {
+    return api.get<RevenueTimeseriesData[]>(analyticsClient, '/api/v1/analytics/revenue/timeseries', params);
   },
 
   /**
@@ -318,8 +336,8 @@ export const adminService = {
   getAnalyticsRideTypes: async (params?: {
     start_date?: string;
     end_date?: string;
-  }): Promise<any> => {
-    return api.get(analyticsClient, '/api/v1/analytics/ride-types', params);
+  }): Promise<RideTypeAnalytics[]> => {
+    return api.get<RideTypeAnalytics[]>(analyticsClient, '/api/v1/analytics/ride-types', params);
   },
 
   /**
@@ -329,8 +347,8 @@ export const adminService = {
   getAnalyticsRidesHourly: async (params?: {
     start_date?: string;
     end_date?: string;
-  }): Promise<any> => {
-    return api.get(analyticsClient, '/api/v1/analytics/rides/hourly', params);
+  }): Promise<HourlyRideData[]> => {
+    return api.get<HourlyRideData[]>(analyticsClient, '/api/v1/analytics/rides/hourly', params);
   },
 
   /**
@@ -340,8 +358,8 @@ export const adminService = {
   getAnalyticsRidesMetrics: async (params?: {
     start_date?: string;
     end_date?: string;
-  }): Promise<any> => {
-    return api.get(analyticsClient, '/api/v1/analytics/rides/metrics', params);
+  }): Promise<RidesMetrics> => {
+    return api.get<RidesMetrics>(analyticsClient, '/api/v1/analytics/rides/metrics', params);
   },
 
   /**
@@ -351,8 +369,8 @@ export const adminService = {
   getAnalyticsDriversPerformance: async (params?: {
     start_date?: string;
     end_date?: string;
-  }): Promise<any> => {
-    return api.get(analyticsClient, '/api/v1/analytics/drivers/performance', params);
+  }): Promise<DriversPerformance> => {
+    return api.get<DriversPerformance>(analyticsClient, '/api/v1/analytics/drivers/performance', params);
   },
 
   /**
@@ -362,8 +380,8 @@ export const adminService = {
   getAnalyticsRidersGrowth: async (params?: {
     start_date?: string;
     end_date?: string;
-  }): Promise<any> => {
-    return api.get(analyticsClient, '/api/v1/analytics/riders/growth', params);
+  }): Promise<RidersGrowth> => {
+    return api.get<RidersGrowth>(analyticsClient, '/api/v1/analytics/riders/growth', params);
   },
 
   /**
@@ -374,8 +392,8 @@ export const adminService = {
     start_date?: string;
     end_date?: string;
     limit?: number;
-  }): Promise<any> => {
-    return api.get(analyticsClient, '/api/v1/analytics/top-drivers', params);
+  }): Promise<TopDriver[]> => {
+    return api.get<TopDriver[]>(analyticsClient, '/api/v1/analytics/top-drivers', params);
   },
 
   /**
@@ -385,8 +403,8 @@ export const adminService = {
   getAnalyticsFinancialReport: async (params?: {
     start_date?: string;
     end_date?: string;
-  }): Promise<any> => {
-    return api.get(analyticsClient, '/api/v1/analytics/financial-report', params);
+  }): Promise<FinancialReport> => {
+    return api.get<FinancialReport>(analyticsClient, '/api/v1/analytics/financial-report', params);
   },
 
   /**
@@ -398,7 +416,7 @@ export const adminService = {
     current_end?: string;
     previous_start?: string;
     previous_end?: string;
-  }): Promise<any> => {
-    return api.get(analyticsClient, '/api/v1/analytics/comparison', params);
+  }): Promise<AnalyticsComparison> => {
+    return api.get<AnalyticsComparison>(analyticsClient, '/api/v1/analytics/comparison', params);
   },
 };

@@ -1,3 +1,5 @@
+import type { RideType } from './ride-types';
+
 // User roles matching backend
 export type UserRole = 'rider' | 'driver' | 'admin';
 
@@ -37,7 +39,7 @@ export type NotificationType = 'push' | 'sms' | 'email';
 export type NotificationStatus = 'sent' | 'failed' | 'pending';
 
 // Discount types
-export type DiscountType = 'percentage' | 'fixed';
+export type DiscountType = 'percentage' | 'fixed_amount';
 
 // User model
 export interface User {
@@ -211,8 +213,8 @@ export interface PromoCodeValidation {
   final_amount: number;
 }
 
-// Ride type model
-export interface RideType {
+// Ride type model (promo service variant with pricing fields)
+export interface PromoRideType {
   id: string;
   name: string;
   description: string;
