@@ -14,7 +14,6 @@ import {
 	IconClock,
 	IconArrowRight,
 	IconUserCheck,
-	IconUserPlus,
 	IconSteeringWheel,
 	IconCreditCard,
 	IconWallet,
@@ -22,6 +21,12 @@ import {
 	IconFileAlert,
 	IconAlertCircle,
 	IconChartPie,
+	IconActivity,
+	IconCheck,
+	IconX,
+	IconShieldCheck,
+	IconTag,
+	IconStar,
 } from '@tabler/icons-react';
 import { adminService } from '@/lib/api/admin.service';
 import {
@@ -29,6 +34,7 @@ import {
 	DashboardSummary,
 	RevenueTrend,
 	DashboardStats,
+	ActivityFeedItem,
 } from '@/lib/types/models';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -79,6 +85,10 @@ export default function DashboardPage() {
 	// Action items
 	const [actionItems, setActionItems] = useState<Awaited<ReturnType<typeof adminService.getActionItems>> | null>(null);
 	const [isLoadingActions, setIsLoadingActions] = useState(true);
+
+	// Activity feed
+	const [activityFeed, setActivityFeed] = useState<ActivityFeedItem[]>([]);
+	const [isLoadingActivity, setIsLoadingActivity] = useState(true);
 
 	// Last updated timestamp
 	const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
@@ -153,6 +163,19 @@ export default function DashboardPage() {
 		}
 	};
 
+	// Fetch activity feed
+	const fetchActivityFeed = async () => {
+		try {
+			setIsLoadingActivity(true);
+			const response = await adminService.getActivityFeed({ limit: 10 });
+			setActivityFeed(Array.isArray(response?.data) ? response.data : []);
+		} catch (err) {
+			console.error('Failed to load activity feed:', err);
+		} finally {
+			setIsLoadingActivity(false);
+		}
+	};
+
 	// Smart default: auto-select group_by based on period
 	const getDefaultGroupBy = (period: typeof revenuePeriod): typeof revenueGroupBy => {
 		switch (period) {
@@ -192,6 +215,7 @@ export default function DashboardPage() {
 		fetchDashboardSummary();
 		fetchRevenueData();
 		fetchActionItems();
+		fetchActivityFeed();
 
 		// Auto-refresh realtime data every 30 seconds
 		const interval = setInterval(() => {
@@ -208,6 +232,7 @@ export default function DashboardPage() {
 		fetchDashboardSummary();
 		fetchRevenueData();
 		fetchActionItems();
+		fetchActivityFeed();
 		toast.success('Dashboard refreshed');
 	};
 
@@ -277,12 +302,12 @@ export default function DashboardPage() {
 						{isLoadingRealtime ? (
 							<Skeleton className='h-8 w-24' />
 						) : (
-							<CardTitle className='text-3xl'>{realtimeMetrics?.active_rides || 0}</CardTitle>
+							<CardTitle className='text-3xl'>{Number(realtimeMetrics?.active_rides) || 0}</CardTitle>
 						)}
 					</CardHeader>
 					<CardContent>
 						<p className='text-xs text-muted-foreground'>
-							{realtimeMetrics?.pending_requests || 0} pending requests
+							{Number(realtimeMetrics?.pending_requests) || 0} pending requests
 						</p>
 					</CardContent>
 				</Card>
@@ -297,12 +322,12 @@ export default function DashboardPage() {
 						{isLoadingRealtime ? (
 							<Skeleton className='h-8 w-24' />
 						) : (
-							<CardTitle className='text-3xl'>{realtimeMetrics?.available_drivers || 0}</CardTitle>
+							<CardTitle className='text-3xl'>{Number(realtimeMetrics?.available_drivers) || 0}</CardTitle>
 						)}
 					</CardHeader>
 					<CardContent>
 						<p className='text-xs text-muted-foreground'>
-							{realtimeMetrics?.online_drivers || 0} online total
+							{Number(realtimeMetrics?.online_drivers) || 0} online total
 						</p>
 					</CardContent>
 				</Card>
@@ -318,7 +343,7 @@ export default function DashboardPage() {
 							<Skeleton className='h-8 w-24' />
 						) : (
 							<CardTitle className='text-3xl'>
-								{formatCurrency(realtimeMetrics?.today_revenue || 0)}
+								{formatCurrency(Number(realtimeMetrics?.today_revenue) || 0)}
 							</CardTitle>
 						)}
 					</CardHeader>
@@ -355,13 +380,13 @@ export default function DashboardPage() {
 							<Skeleton className='h-8 w-24' />
 						) : (
 							<CardTitle className='text-3xl'>
-								{realtimeMetrics?.avg_wait_time.toFixed(1) || 0}m
+								{(realtimeMetrics?.avg_wait_time ?? 0).toFixed(1)}m
 							</CardTitle>
 						)}
 					</CardHeader>
 					<CardContent>
 						<p className='text-xs text-muted-foreground'>
-							Avg ETA: {realtimeMetrics?.avg_eta.toFixed(1) || 0} min
+							Avg ETA: {(realtimeMetrics?.avg_eta ?? 0).toFixed(1)} min
 						</p>
 					</CardContent>
 				</Card>
@@ -380,7 +405,7 @@ export default function DashboardPage() {
 							<Skeleton className='h-7 w-20' />
 						) : (
 							<CardTitle className='text-2xl'>
-								{formatNumber(dashboardStats?.users?.total_users || 0)}
+								{formatNumber(Number(dashboardStats?.users?.total_users) || 0)}
 							</CardTitle>
 						)}
 					</CardHeader>
@@ -403,7 +428,7 @@ export default function DashboardPage() {
 							<Skeleton className='h-7 w-20' />
 						) : (
 							<CardTitle className='text-2xl'>
-								{formatNumber(dashboardStats?.rides?.total_rides || 0)}
+								{formatNumber(Number(dashboardStats?.rides?.total_rides) || 0)}
 							</CardTitle>
 						)}
 					</CardHeader>
@@ -425,7 +450,7 @@ export default function DashboardPage() {
 							<Skeleton className='h-7 w-20' />
 						) : (
 							<CardTitle className='text-2xl'>
-								{formatCurrency(dashboardStats?.rides?.total_revenue || 0)}
+								{formatCurrency(Number(dashboardStats?.rides?.total_revenue) || 0)}
 							</CardTitle>
 						)}
 					</CardHeader>
@@ -447,7 +472,7 @@ export default function DashboardPage() {
 							<Skeleton className='h-7 w-20' />
 						) : (
 							<CardTitle className='text-2xl'>
-								{formatNumber(dashboardStats?.today_rides?.total_rides || 0)}
+								{formatNumber(Number(dashboardStats?.today_rides?.total_rides) || 0)}
 							</CardTitle>
 						)}
 					</CardHeader>
@@ -831,7 +856,7 @@ export default function DashboardPage() {
 							</Link>
 
 							{/* Fraud Alerts */}
-							<div className='flex items-center justify-between rounded-lg border p-4 hover:bg-accent cursor-pointer transition-colors'>
+							<Link href='/dashboard/fraud' className='flex items-center justify-between rounded-lg border p-4 hover:bg-accent cursor-pointer transition-colors'>
 								<div className='flex items-center gap-3'>
 									<div className='rounded-full bg-red-100 p-2 dark:bg-red-900'>
 										<IconAlertTriangle className='h-5 w-5 text-red-600 dark:text-red-400' />
@@ -852,10 +877,10 @@ export default function DashboardPage() {
 									</Badge>
 									<IconArrowRight className='h-4 w-4 text-muted-foreground' />
 								</div>
-							</div>
+							</Link>
 
 							{/* Negative Feedback */}
-							<div className='flex items-center justify-between rounded-lg border p-4 hover:bg-accent cursor-pointer transition-colors'>
+							<Link href='/dashboard/rides' className='flex items-center justify-between rounded-lg border p-4 hover:bg-accent cursor-pointer transition-colors'>
 								<div className='flex items-center gap-3'>
 									<div className='rounded-full bg-orange-100 p-2 dark:bg-orange-900'>
 										<IconAlertCircle className='h-5 w-5 text-orange-600 dark:text-orange-400' />
@@ -876,7 +901,7 @@ export default function DashboardPage() {
 									</Badge>
 									<IconArrowRight className='h-4 w-4 text-muted-foreground' />
 								</div>
-							</div>
+							</Link>
 
 							{/* Low Balance Drivers */}
 							<Link href='/dashboard/drivers'>
@@ -948,6 +973,75 @@ export default function DashboardPage() {
 				</CardContent>
 			</Card>
 
+			{/* Recent Activity Feed */}
+			<Card>
+				<CardHeader>
+					<div className='flex items-center justify-between'>
+						<div className='flex items-center gap-2'>
+							<IconActivity className='h-5 w-5' />
+							<CardTitle>Recent Activity</CardTitle>
+						</div>
+						<CardDescription>Latest platform events</CardDescription>
+					</div>
+				</CardHeader>
+				<CardContent>
+					{isLoadingActivity ? (
+						<div className='space-y-3'>
+							{[...Array(5)].map((_, i) => (
+								<Skeleton key={i} className='h-12 w-full' />
+							))}
+						</div>
+					) : activityFeed.length > 0 ? (
+						<div className='space-y-3'>
+							{activityFeed.map((item) => {
+								const iconMap: Record<string, { icon: React.ReactNode; color: string }> = {
+									ride_completed: { icon: <IconCheck className='h-4 w-4' />, color: 'bg-green-100 text-green-600 dark:bg-green-900 dark:text-green-400' },
+									ride_cancelled: { icon: <IconX className='h-4 w-4' />, color: 'bg-red-100 text-red-600 dark:bg-red-900 dark:text-red-400' },
+									driver_approved: { icon: <IconUserCheck className='h-4 w-4' />, color: 'bg-blue-100 text-blue-600 dark:bg-blue-900 dark:text-blue-400' },
+									driver_rejected: { icon: <IconX className='h-4 w-4' />, color: 'bg-orange-100 text-orange-600 dark:bg-orange-900 dark:text-orange-400' },
+									fraud_alert: { icon: <IconShieldCheck className='h-4 w-4' />, color: 'bg-red-100 text-red-600 dark:bg-red-900 dark:text-red-400' },
+									user_suspended: { icon: <IconAlertTriangle className='h-4 w-4' />, color: 'bg-yellow-100 text-yellow-600 dark:bg-yellow-900 dark:text-yellow-400' },
+									user_activated: { icon: <IconUserCheck className='h-4 w-4' />, color: 'bg-green-100 text-green-600 dark:bg-green-900 dark:text-green-400' },
+									promo_redeemed: { icon: <IconTag className='h-4 w-4' />, color: 'bg-purple-100 text-purple-600 dark:bg-purple-900 dark:text-purple-400' },
+									payment_failed: { icon: <IconCreditCard className='h-4 w-4' />, color: 'bg-red-100 text-red-600 dark:bg-red-900 dark:text-red-400' },
+									high_value_ride: { icon: <IconStar className='h-4 w-4' />, color: 'bg-yellow-100 text-yellow-600 dark:bg-yellow-900 dark:text-yellow-400' },
+								};
+								const style = iconMap[item.type] || { icon: <IconActivity className='h-4 w-4' />, color: 'bg-muted text-muted-foreground' };
+								return (
+									<div key={item.id} className='flex items-start gap-3 rounded-lg border p-3'>
+										<div className={`mt-0.5 rounded-full p-1.5 ${style.color}`}>
+											{style.icon}
+										</div>
+										<div className='flex-1 min-w-0'>
+											<p className='text-sm font-medium'>{item.title}</p>
+											<p className='text-xs text-muted-foreground truncate'>{item.description}</p>
+										</div>
+										<div className='flex items-center gap-2 shrink-0'>
+											{item.severity && (
+												<Badge
+													variant={item.severity === 'critical' || item.severity === 'high' ? 'destructive' : 'secondary'}
+													className='text-[10px] px-1.5 py-0'
+												>
+													{item.severity}
+												</Badge>
+											)}
+											<span className='text-xs text-muted-foreground whitespace-nowrap'>
+												{formatRelativeTime(new Date(item.timestamp))}
+											</span>
+										</div>
+									</div>
+								);
+							})}
+						</div>
+					) : (
+						<div className='flex flex-col items-center justify-center py-8 text-center'>
+							<IconActivity className='h-8 w-8 text-muted-foreground mb-2' />
+							<p className='text-sm text-muted-foreground'>No recent activity</p>
+						</div>
+					)}
+				</CardContent>
+			</Card>
+
 			{/* Quick Links */}
 			<div className='grid gap-4 md:grid-cols-4'>
 				<Link href='/dashboard/rides'>
@@ -977,13 +1071,15 @@ export default function DashboardPage() {
 						</CardContent>
 					</Card>
 				</Link>
-				<Card className='hover:bg-accent cursor-pointer transition-colors'>
-					<CardContent className='flex items-center gap-3 p-4'>
-						<IconCurrencyDollar className='h-5 w-5 text-yellow-500' />
-						<span className='font-medium'>Revenue Reports</span>
-						<IconArrowRight className='h-4 w-4 ml-auto text-muted-foreground' />
-					</CardContent>
-				</Card>
+				<Link href='/dashboard/analytics'>
+					<Card className='hover:bg-accent cursor-pointer transition-colors'>
+						<CardContent className='flex items-center gap-3 p-4'>
+							<IconCurrencyDollar className='h-5 w-5 text-yellow-500' />
+							<span className='font-medium'>Revenue Reports</span>
+							<IconArrowRight className='h-4 w-4 ml-auto text-muted-foreground' />
+						</CardContent>
+					</Card>
+				</Link>
 			</div>
 		</div>
 	);
