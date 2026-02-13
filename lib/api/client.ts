@@ -48,7 +48,8 @@ const responseInterceptor = (response: AxiosResponse): AxiosResponse => {
 const errorInterceptor = async (error: unknown) => {
   if (axios.isAxiosError(error)) {
     const statusCode = error.response?.status;
-    const message = error.response?.data?.error || error.message || 'An error occurred';
+    const rawError = error.response?.data?.error;
+    const message = (typeof rawError === 'string' ? rawError : error.response?.data?.message || error.message) || 'An error occurred';
 
     // Handle 401 Unauthorized - token expired or invalid
     if (statusCode === 401) {
