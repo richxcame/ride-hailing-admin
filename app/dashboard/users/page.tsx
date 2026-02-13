@@ -78,30 +78,27 @@ export default function UsersPage() {
 	const [userToActivate, setUserToActivate] = useState<User | null>(null);
 	const [isActivating, setIsActivating] = useState(false);
 
-	// Fetch user stats from different role queries
+	// Stats will be fetched with the initial users query
 	const fetchStats = useCallback(async () => {
 		try {
 			setIsLoadingStats(true);
-			// Fetch counts for each role
-			const [allUsers, riders, drivers] = await Promise.all([
-				adminService.getUsers({ limit: 1 }),
-				adminService.getUsers({ limit: 1, role: 'rider' }),
-				adminService.getUsers({ limit: 1, role: 'driver' }),
-			]);
+			// Fetch users with no filters to get full stats
+			const response = await adminService.getUsers({ limit: 1 });
 
-			// Calculate stats from the total count
-			const total = allUsers.meta.total;
-			const ridersCount = riders.meta.total;
-			const driversCount = drivers.meta.total;
-
-			setStats({
-				total,
-				riders: ridersCount,
-				drivers: driversCount,
-				admins: total - ridersCount - driversCount,
-				active: total, // We'd need separate API call for this
-				inactive: 0,
-			});
+			// Extract stats from meta
+			if (response.meta.stats) {
+				const s = response.meta.stats;
+				const total = Number(s.total_users) || 0;
+				const active = Number(s.active_users) || 0;
+				setStats({
+					total,
+					riders: Number(s.total_riders) || 0,
+					drivers: Number(s.total_drivers) || 0,
+					admins: Number(s.total_admins) || 0,
+					active,
+					inactive: total - active,
+				});
+			}
 		} catch (error) {
 			console.error('Failed to fetch stats:', error);
 		} finally {
@@ -116,9 +113,7 @@ export default function UsersPage() {
 				limit: pagination.limit,
 				offset: pagination.offset,
 				...(roleFilter !== 'all' && { role: roleFilter }),
-				...(statusFilter !== 'all' && {
-					is_active: statusFilter === 'active',
-				}),
+				...(statusFilter !== 'all' && { status: statusFilter as 'active' | 'inactive' }),
 				...(searchQuery && { search: searchQuery }),
 			});
 
@@ -282,7 +277,7 @@ export default function UsersPage() {
 			</div>
 
 			{/* Stats Cards */}
-			<div className='grid gap-4 md:grid-cols-2 lg:grid-cols-4'>
+			<div className='grid gap-4 md:grid-cols-2 lg:grid-cols-5'>
 				<Card>
 					<CardHeader className='pb-2'>
 						<CardDescription className='flex items-center gap-2'>
@@ -296,9 +291,24 @@ export default function UsersPage() {
 						)}
 					</CardHeader>
 					<CardContent>
-						<p className='text-xs text-muted-foreground'>
-							All registered users
-						</p>
+						<p className='text-xs text-muted-foreground'>All registered users</p>
+					</CardContent>
+				</Card>
+
+				<Card>
+					<CardHeader className='pb-2'>
+						<CardDescription className='flex items-center gap-2'>
+							<IconUserCheck className='h-4 w-4 text-green-600' />
+							Active Users
+						</CardDescription>
+						{isLoadingStats ? (
+							<Skeleton className='h-8 w-20' />
+						) : (
+							<CardTitle className='text-3xl text-green-600'>{stats?.active || 0}</CardTitle>
+						)}
+					</CardHeader>
+					<CardContent>
+						<p className='text-xs text-muted-foreground'>Currently active</p>
 					</CardContent>
 				</Card>
 
@@ -315,9 +325,7 @@ export default function UsersPage() {
 						)}
 					</CardHeader>
 					<CardContent>
-						<p className='text-xs text-muted-foreground'>
-							Registered riders
-						</p>
+						<p className='text-xs text-muted-foreground'>Registered riders</p>
 					</CardContent>
 				</Card>
 
@@ -334,9 +342,7 @@ export default function UsersPage() {
 						)}
 					</CardHeader>
 					<CardContent>
-						<p className='text-xs text-muted-foreground'>
-							Registered drivers
-						</p>
+						<p className='text-xs text-muted-foreground'>Registered drivers</p>
 					</CardContent>
 				</Card>
 
@@ -353,9 +359,7 @@ export default function UsersPage() {
 						)}
 					</CardHeader>
 					<CardContent>
-						<p className='text-xs text-muted-foreground'>
-							System administrators
-						</p>
+						<p className='text-xs text-muted-foreground'>System administrators</p>
 					</CardContent>
 				</Card>
 			</div>
