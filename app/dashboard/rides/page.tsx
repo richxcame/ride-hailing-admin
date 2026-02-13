@@ -152,7 +152,7 @@ export default function RidesPage() {
 	const handleConfirmCancel = async () => {
 		if (!rideToCancel) return;
 		try {
-			// In a real app, you'd call an API to cancel the ride
+			await adminService.cancelRide(rideToCancel.id, { reason: 'Cancelled by admin' });
 			toast.success('Ride cancelled successfully');
 			setShowCancelDialog(false);
 			setRideToCancel(null);
