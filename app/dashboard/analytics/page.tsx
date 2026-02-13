@@ -97,8 +97,8 @@ export default function AnalyticsPage() {
 
 			setDashboard(dashboardData);
 			setRevenue(revenueData);
-			setRideTypes(rideTypesData?.ride_types || []);
-			setTopDrivers(topDriversData?.drivers || []);
+			setRideTypes(Array.isArray(rideTypesData) ? rideTypesData : []);
+			setTopDrivers(Array.isArray(topDriversData) ? topDriversData : []);
 			setRidesMetrics(metricsData);
 			setDriversPerformance(driversData);
 			setRidersGrowth(ridersData);
