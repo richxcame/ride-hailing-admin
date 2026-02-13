@@ -12,7 +12,7 @@ import {
 	IconUsers,
 } from '@tabler/icons-react';
 import { promoService } from '@/lib/api/promo.service';
-import { RideType, PromoCode } from '@/lib/types/models';
+import { PromoRideType, PromoCode } from '@/lib/types/models';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -22,7 +22,7 @@ import { CreatePromoDialog } from '@/components/create-promo-dialog';
 import { PromoDetailDialog } from '@/components/promo-detail-dialog';
 
 export default function PromosPage() {
-	const [rideTypes, setRideTypes] = useState<RideType[]>([]);
+	const [rideTypes, setRideTypes] = useState<PromoRideType[]>([]);
 	const [promoCodes, setPromoCodes] = useState<PromoCode[]>([]);
 	const [referralCodes, setReferralCodes] = useState<
 		Array<{
