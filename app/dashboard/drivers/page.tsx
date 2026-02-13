@@ -45,6 +45,7 @@ import { Label } from '@/components/ui/label';
 interface DriverStats {
 	total: number;
 	online: number;
+	offline: number;
 	available: number;
 	pending: number;
 }
@@ -87,22 +88,24 @@ export default function DriversPage() {
 	const [driverToReject, setDriverToReject] = useState<Driver | null>(null);
 	const [isRejecting, setIsRejecting] = useState(false);
 
-	// Fetch driver stats
+	// Fetch driver stats from meta
 	const fetchStats = useCallback(async () => {
 		try {
 			setIsLoadingStats(true);
-			const [allDrivers, onlineDrivers, pendingRes] = await Promise.all([
-				adminService.getDrivers({ limit: 1 }),
-				adminService.getDrivers({ limit: 1, is_online: true }),
-				adminService.getPendingDrivers({ limit: 1 }),
-			]);
+			// Fetch drivers with no filters to get full stats from meta
+			const response = await adminService.getDrivers({ limit: 1 });
 
-			setStats({
-				total: allDrivers.meta.total,
-				online: onlineDrivers.meta.total,
-				available: onlineDrivers.meta.total, // Available is subset of online
-				pending: pendingRes.meta.total,
-			});
+			// Extract stats from meta
+			if (response.meta.stats) {
+				const s = response.meta.stats;
+				setStats({
+					total: Number(s.total_drivers) || 0,
+					online: Number(s.online_drivers) || 0,
+					offline: Number(s.offline_drivers) || 0,
+					available: Number(s.available_drivers) || 0,
+					pending: Number(s.pending_approvals) || 0,
+				});
+			}
 		} catch (error) {
 			console.error('Failed to fetch stats:', error);
 		} finally {
@@ -116,9 +119,7 @@ export default function DriversPage() {
 			const response = await adminService.getDrivers({
 				limit: pagination.limit,
 				offset: pagination.offset,
-				...(statusFilter === 'online' && { is_online: true }),
-				...(statusFilter === 'offline' && { is_online: false }),
-				...(statusFilter === 'available' && { is_available: true }),
+				...(statusFilter !== 'all' && { status: statusFilter as 'online' | 'offline' | 'available' | 'pending' }),
 				...(searchQuery && { search: searchQuery }),
 			});
 			setDrivers(response.data);
@@ -302,7 +303,7 @@ export default function DriversPage() {
 			</div>
 
 			{/* Stats Cards */}
-			<div className='grid gap-4 md:grid-cols-2 lg:grid-cols-4'>
+			<div className='grid gap-4 md:grid-cols-2 lg:grid-cols-5'>
 				<Card>
 					<CardHeader className='pb-2'>
 						<CardDescription className='flex items-center gap-2'>
@@ -344,6 +345,27 @@ export default function DriversPage() {
 				<Card>
 					<CardHeader className='pb-2'>
 						<CardDescription className='flex items-center gap-2'>
+							<IconUserCheck className='h-4 w-4 text-blue-600' />
+							Available
+						</CardDescription>
+						{isLoadingStats ? (
+							<Skeleton className='h-8 w-20' />
+						) : (
+							<CardTitle className='text-3xl text-blue-600'>
+								{stats?.available || 0}
+							</CardTitle>
+						)}
+					</CardHeader>
+					<CardContent>
+						<p className='text-xs text-muted-foreground'>
+							Online & available
+						</p>
+					</CardContent>
+				</Card>
+
+				<Card>
+					<CardHeader className='pb-2'>
+						<CardDescription className='flex items-center gap-2'>
 							<IconCloudOff className='h-4 w-4 text-muted-foreground' />
 							Offline
 						</CardDescription>
@@ -351,7 +373,7 @@ export default function DriversPage() {
 							<Skeleton className='h-8 w-20' />
 						) : (
 							<CardTitle className='text-3xl text-muted-foreground'>
-								{(stats?.total || 0) - (stats?.online || 0)}
+								{stats?.offline || 0}
 							</CardTitle>
 						)}
 					</CardHeader>
@@ -435,6 +457,7 @@ export default function DriversPage() {
 											<SelectItem value='online'>Online</SelectItem>
 											<SelectItem value='offline'>Offline</SelectItem>
 											<SelectItem value='available'>Available</SelectItem>
+											<SelectItem value='pending'>Pending</SelectItem>
 										</SelectContent>
 									</Select>
 									<Button onClick={handleSearch}>Search</Button>
