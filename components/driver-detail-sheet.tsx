@@ -60,7 +60,7 @@ export function DriverDetailSheet({
 		toast.success(`${label} copied to clipboard`);
 	};
 
-	const isPending = !driver.is_available;
+	const isPending = driver.approval_status === 'pending';
 
 	return (
 		<Sheet open={open} onOpenChange={onOpenChange}>
@@ -89,9 +89,13 @@ export function DriverDetailSheet({
 									{driver.user?.email}
 								</p>
 								<div className='flex flex-wrap items-center gap-1.5 mt-2'>
-									{isPending ? (
+									{driver.approval_status === 'pending' ? (
 										<Badge variant='outline' className='border-orange-500 text-orange-600'>
 											Pending Approval
+										</Badge>
+									) : driver.approval_status === 'rejected' ? (
+										<Badge variant='destructive'>
+											Rejected
 										</Badge>
 									) : (
 										<>
@@ -325,8 +329,10 @@ export function DriverDetailSheet({
 								<div className='rounded-md border px-3 py-2.5'>
 									<p className='text-xs text-muted-foreground'>Approval</p>
 									<p className='text-sm font-medium'>
-										{driver.is_available ? (
+										{driver.approval_status === 'approved' ? (
 											<span className='text-green-600'>Approved</span>
+										) : driver.approval_status === 'rejected' ? (
+											<span className='text-red-600'>Rejected</span>
 										) : (
 											<span className='text-orange-600'>Pending</span>
 										)}

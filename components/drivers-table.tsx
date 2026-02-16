@@ -145,14 +145,21 @@ const createColumns = (): ColumnDef<Driver>[] => [
 		},
 	},
 	{
-		accessorKey: 'is_online',
+		accessorKey: 'approval_status',
 		header: 'Status',
 		cell: ({ row }) => {
 			const driver = row.original;
-			if (!driver.is_available) {
+			if (driver.approval_status === 'pending') {
 				return (
 					<Badge variant='outline' className='border-orange-500 text-orange-600'>
 						Pending
+					</Badge>
+				);
+			}
+			if (driver.approval_status === 'rejected') {
+				return (
+					<Badge variant='destructive'>
+						Rejected
 					</Badge>
 				);
 			}

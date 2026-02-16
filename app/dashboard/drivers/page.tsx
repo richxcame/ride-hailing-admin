@@ -224,7 +224,7 @@ export default function DriversPage() {
 
 			// Update detail sheet if open
 			if (selectedDriver?.id === driverToApprove.id) {
-				setSelectedDriver({ ...selectedDriver, is_available: true });
+				setSelectedDriver({ ...selectedDriver, approval_status: 'approved' });
 			}
 		} catch (error) {
 			const errorMessage = error instanceof Error ? error.message : 'Failed to approve driver';

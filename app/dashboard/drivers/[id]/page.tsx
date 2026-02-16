@@ -97,7 +97,7 @@ export default function DriverDetailPage() {
 			toast.success('Driver approved successfully');
 			setApproveDialogOpen(false);
 			setApproveNotes('');
-			setDriver({ ...driver, is_available: true });
+			setDriver({ ...driver, approval_status: 'approved' });
 		} catch (error) {
 			const errorMessage =
 				error instanceof Error ? error.message : 'Failed to approve driver';
@@ -180,7 +180,7 @@ export default function DriverDetailPage() {
 		);
 	}
 
-	const isPending = !driver.is_available;
+	const isPending = driver.approval_status === 'pending';
 
 	return (
 		<div className='flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6'>
@@ -490,8 +490,10 @@ export default function DriverDetailPage() {
 								<div className='rounded-lg border p-4'>
 									<p className='text-sm text-muted-foreground'>Approval Status</p>
 									<p className='text-lg font-semibold'>
-										{driver.is_available ? (
+										{driver.approval_status === 'approved' ? (
 											<span className='text-green-600'>Approved</span>
+										) : driver.approval_status === 'rejected' ? (
+											<span className='text-red-600'>Rejected</span>
 										) : (
 											<span className='text-orange-600'>Pending</span>
 										)}

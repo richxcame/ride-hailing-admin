@@ -57,6 +57,9 @@ export interface User {
   deleted_at?: string;
 }
 
+// Driver approval status
+export type DriverApprovalStatus = 'pending' | 'approved' | 'rejected';
+
 // Driver model
 export interface Driver {
   id: string;
@@ -68,6 +71,11 @@ export interface Driver {
   vehicle_year: number;
   is_available: boolean;
   is_online: boolean;
+  approval_status: DriverApprovalStatus;
+  approved_by?: string;
+  approved_at?: string;
+  rejection_reason?: string;
+  rejected_at?: string;
   rating: number;
   total_rides: number;
   current_latitude?: number;
