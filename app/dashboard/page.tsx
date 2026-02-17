@@ -62,6 +62,24 @@ const PAYMENT_COLORS = {
 	cash: '#22c55e',
 };
 
+// Activity feed event icon/color mapping
+const EVENT_ICON_MAP: Record<string, { icon: React.ReactNode; color: string }> = {
+	ride_completed: { icon: <IconCheck className='h-4 w-4' />, color: 'bg-green-100 text-green-600 dark:bg-green-900 dark:text-green-400' },
+	ride_started: { icon: <IconCar className='h-4 w-4' />, color: 'bg-blue-100 text-blue-600 dark:bg-blue-900 dark:text-blue-400' },
+	ride_cancelled: { icon: <IconX className='h-4 w-4' />, color: 'bg-red-100 text-red-600 dark:bg-red-900 dark:text-red-400' },
+	driver_registered: { icon: <IconUserCheck className='h-4 w-4' />, color: 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900 dark:text-indigo-400' },
+	driver_approved: { icon: <IconUserCheck className='h-4 w-4' />, color: 'bg-green-100 text-green-600 dark:bg-green-900 dark:text-green-400' },
+	driver_rejected: { icon: <IconX className='h-4 w-4' />, color: 'bg-orange-100 text-orange-600 dark:bg-orange-900 dark:text-orange-400' },
+	fraud_alert: { icon: <IconShieldCheck className='h-4 w-4' />, color: 'bg-red-100 text-red-600 dark:bg-red-900 dark:text-red-400' },
+	user_suspended: { icon: <IconAlertTriangle className='h-4 w-4' />, color: 'bg-yellow-100 text-yellow-600 dark:bg-yellow-900 dark:text-yellow-400' },
+	user_activated: { icon: <IconUserCheck className='h-4 w-4' />, color: 'bg-green-100 text-green-600 dark:bg-green-900 dark:text-green-400' },
+	promo_redeemed: { icon: <IconTag className='h-4 w-4' />, color: 'bg-purple-100 text-purple-600 dark:bg-purple-900 dark:text-purple-400' },
+	payment_failed: { icon: <IconCreditCard className='h-4 w-4' />, color: 'bg-red-100 text-red-600 dark:bg-red-900 dark:text-red-400' },
+	high_value_ride: { icon: <IconStar className='h-4 w-4' />, color: 'bg-yellow-100 text-yellow-600 dark:bg-yellow-900 dark:text-yellow-400' },
+};
+
+const DEFAULT_EVENT_STYLE = { icon: <IconActivity className='h-4 w-4' />, color: 'bg-muted text-muted-foreground' };
+
 export default function DashboardPage() {
 	// Base dashboard stats
 	const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null);
@@ -254,11 +272,14 @@ export default function DashboardPage() {
 
 	const formatRelativeTime = (date: Date) => {
 		const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
+		if (seconds < 0) return 'just now';
 		if (seconds < 60) return 'just now';
 		const minutes = Math.floor(seconds / 60);
 		if (minutes < 60) return `${minutes}m ago`;
 		const hours = Math.floor(minutes / 60);
-		return `${hours}h ago`;
+		if (hours < 24) return `${hours}h ago`;
+		const days = Math.floor(hours / 24);
+		return `${days}d ago`;
 	};
 
 	// Calculate total action items count
@@ -992,43 +1013,29 @@ export default function DashboardPage() {
 							))}
 						</div>
 					) : activityFeed.length > 0 ? (
-						<div className='space-y-3'>
+						<div className='divide-y'>
 							{activityFeed.map((item) => {
-								const iconMap: Record<string, { icon: React.ReactNode; color: string }> = {
-									ride_completed: { icon: <IconCheck className='h-4 w-4' />, color: 'bg-green-100 text-green-600 dark:bg-green-900 dark:text-green-400' },
-									ride_cancelled: { icon: <IconX className='h-4 w-4' />, color: 'bg-red-100 text-red-600 dark:bg-red-900 dark:text-red-400' },
-									driver_approved: { icon: <IconUserCheck className='h-4 w-4' />, color: 'bg-blue-100 text-blue-600 dark:bg-blue-900 dark:text-blue-400' },
-									driver_rejected: { icon: <IconX className='h-4 w-4' />, color: 'bg-orange-100 text-orange-600 dark:bg-orange-900 dark:text-orange-400' },
-									fraud_alert: { icon: <IconShieldCheck className='h-4 w-4' />, color: 'bg-red-100 text-red-600 dark:bg-red-900 dark:text-red-400' },
-									user_suspended: { icon: <IconAlertTriangle className='h-4 w-4' />, color: 'bg-yellow-100 text-yellow-600 dark:bg-yellow-900 dark:text-yellow-400' },
-									user_activated: { icon: <IconUserCheck className='h-4 w-4' />, color: 'bg-green-100 text-green-600 dark:bg-green-900 dark:text-green-400' },
-									promo_redeemed: { icon: <IconTag className='h-4 w-4' />, color: 'bg-purple-100 text-purple-600 dark:bg-purple-900 dark:text-purple-400' },
-									payment_failed: { icon: <IconCreditCard className='h-4 w-4' />, color: 'bg-red-100 text-red-600 dark:bg-red-900 dark:text-red-400' },
-									high_value_ride: { icon: <IconStar className='h-4 w-4' />, color: 'bg-yellow-100 text-yellow-600 dark:bg-yellow-900 dark:text-yellow-400' },
-								};
-								const style = iconMap[item.type] || { icon: <IconActivity className='h-4 w-4' />, color: 'bg-muted text-muted-foreground' };
+								const style = EVENT_ICON_MAP[item.event_type] || DEFAULT_EVENT_STYLE;
+								const roleColor = item.actor_role === 'driver'
+									? 'text-green-600 dark:text-green-400'
+									: item.actor_role === 'rider'
+										? 'text-blue-600 dark:text-blue-400'
+										: 'text-muted-foreground';
 								return (
-									<div key={item.id} className='flex items-start gap-3 rounded-lg border p-3'>
-										<div className={`mt-0.5 rounded-full p-1.5 ${style.color}`}>
+									<div key={item.id} className='flex items-center gap-3 py-3 first:pt-0 last:pb-0'>
+										<div className={`rounded-full p-1.5 shrink-0 ${style.color}`}>
 											{style.icon}
 										</div>
 										<div className='flex-1 min-w-0'>
-											<p className='text-sm font-medium'>{item.title}</p>
-											<p className='text-xs text-muted-foreground truncate'>{item.description}</p>
+											<p className='text-sm'>{item.description}</p>
+											<div className='flex items-center gap-2 mt-0.5'>
+												<span className={`text-xs font-medium ${roleColor}`}>{item.actor_name}</span>
+												<span className='text-xs text-muted-foreground capitalize'>{item.actor_role}</span>
+											</div>
 										</div>
-										<div className='flex items-center gap-2 shrink-0'>
-											{item.severity && (
-												<Badge
-													variant={item.severity === 'critical' || item.severity === 'high' ? 'destructive' : 'secondary'}
-													className='text-[10px] px-1.5 py-0'
-												>
-													{item.severity}
-												</Badge>
-											)}
-											<span className='text-xs text-muted-foreground whitespace-nowrap'>
-												{formatRelativeTime(new Date(item.timestamp))}
-											</span>
-										</div>
+										<span className='text-xs text-muted-foreground whitespace-nowrap shrink-0'>
+											{formatRelativeTime(new Date(item.created_at))}
+										</span>
 									</div>
 								);
 							})}

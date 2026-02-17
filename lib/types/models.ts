@@ -506,12 +506,13 @@ export interface RevenueTrend {
 // Activity feed item
 export interface ActivityFeedItem {
   id: string;
-  type: 'ride_completed' | 'ride_cancelled' | 'driver_approved' | 'driver_rejected' | 'fraud_alert' | 'user_suspended' | 'user_activated' | 'promo_redeemed' | 'payment_failed' | 'high_value_ride';
-  title: string;
+  event_type: string;
   description: string;
-  timestamp: string;
-  severity?: 'low' | 'medium' | 'high' | 'critical';
-  metadata?: Record<string, unknown>;
+  actor_name: string;
+  actor_role: string;
+  entity_type: string;
+  entity_id: string;
+  created_at: string;
 }
 
 // Analytics types
