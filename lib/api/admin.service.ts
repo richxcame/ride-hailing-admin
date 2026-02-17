@@ -337,7 +337,8 @@ export const adminService = {
     start_date?: string;
     end_date?: string;
   }): Promise<RideTypeAnalytics[]> => {
-    return api.get<RideTypeAnalytics[]>(analyticsClient, '/api/v1/analytics/ride-types', params);
+    const response = await api.get<{ ride_types: RideTypeAnalytics[] }>(analyticsClient, '/api/v1/analytics/ride-types', params);
+    return response.ride_types;
   },
 
   /**
@@ -393,7 +394,8 @@ export const adminService = {
     end_date?: string;
     limit?: number;
   }): Promise<TopDriver[]> => {
-    return api.get<TopDriver[]>(analyticsClient, '/api/v1/analytics/top-drivers', params);
+    const response = await api.get<{ drivers: TopDriver[] }>(analyticsClient, '/api/v1/analytics/top-drivers', params);
+    return response.drivers;
   },
 
   /**
