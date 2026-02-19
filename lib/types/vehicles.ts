@@ -2,10 +2,21 @@ export type VehicleStatus = 'pending' | 'approved' | 'rejected' | 'suspended' | 
 export type VehicleCategory = 'economy' | 'comfort' | 'premium' | 'lux' | 'xl' | 'wav' | 'electric';
 export type FuelType = 'gasoline' | 'diesel' | 'electric' | 'hybrid' | 'cng' | 'lpg';
 
+export interface DriverSummary {
+  user_id: string;
+  driver_id?: string;
+  first_name: string;
+  last_name: string;
+  phone_number: string;
+  email: string;
+  rating?: number;
+  total_rides: number;
+}
+
 export interface Vehicle {
   id: string;
   driver_id: string;
-  driver_name?: string;
+  driver?: DriverSummary;
   status: VehicleStatus;
   category: VehicleCategory;
   make: string;

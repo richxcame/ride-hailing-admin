@@ -584,33 +584,81 @@ export default function VehicleDetailPage() {
 									<CardTitle className='text-base'>Assigned Driver</CardTitle>
 									<CardDescription>The driver who registered this vehicle</CardDescription>
 								</CardHeader>
-								<CardContent>
-									<div className='flex items-center justify-between p-4 rounded-lg border'>
-										<div className='flex items-center gap-3'>
-											<div className='rounded-full bg-muted p-2'>
-												<IconUsers className='h-5 w-5 text-muted-foreground' />
+								<CardContent className='space-y-4'>
+									{vehicle.driver ? (
+										<>
+											{/* Driver identity */}
+											<div className='flex items-center justify-between p-4 rounded-lg border'>
+												<div className='flex items-center gap-3'>
+													<div className='rounded-full bg-muted p-3'>
+														<IconUsers className='h-5 w-5 text-muted-foreground' />
+													</div>
+													<div>
+														<p className='font-semibold text-base'>
+															{vehicle.driver.first_name} {vehicle.driver.last_name}
+														</p>
+														<p className='text-sm text-muted-foreground'>{vehicle.driver.email}</p>
+													</div>
+												</div>
+												<Link href={`/dashboard/drivers/${vehicle.driver.user_id}`}>
+													<Button size='sm' variant='outline'>
+														View Driver
+													</Button>
+												</Link>
 											</div>
-											<div>
-												<p className='font-medium'>{vehicle.driver_name ?? 'Unknown Driver'}</p>
-												<p className='text-xs text-muted-foreground font-mono'>{vehicle.driver_id}</p>
+
+											{/* Driver stats grid */}
+											<div className='grid grid-cols-2 gap-3'>
+												<div className='rounded-lg border p-3'>
+													<p className='text-xs text-muted-foreground uppercase tracking-wide mb-1'>Phone</p>
+													<p className='text-sm font-medium font-mono'>{vehicle.driver.phone_number}</p>
+												</div>
+												<div className='rounded-lg border p-3'>
+													<p className='text-xs text-muted-foreground uppercase tracking-wide mb-1'>Rating</p>
+													<p className='text-sm font-medium'>
+														{vehicle.driver.rating != null
+															? `${vehicle.driver.rating.toFixed(1)} ★`
+															: 'No rating yet'}
+													</p>
+												</div>
+												<div className='rounded-lg border p-3'>
+													<p className='text-xs text-muted-foreground uppercase tracking-wide mb-1'>Total Rides</p>
+													<p className='text-sm font-medium'>{vehicle.driver.total_rides.toLocaleString()}</p>
+												</div>
+												<div className='rounded-lg border p-3'>
+													<p className='text-xs text-muted-foreground uppercase tracking-wide mb-1'>Driver ID</p>
+													<div className='flex items-center gap-1.5'>
+														<code className='text-xs font-mono truncate'>
+															{vehicle.driver.driver_id ?? vehicle.driver_id}
+														</code>
+														<button
+															onClick={() => copyToClipboard(vehicle.driver!.driver_id ?? vehicle.driver_id, 'Driver ID')}
+															className='p-0.5 text-muted-foreground hover:text-foreground shrink-0'
+														>
+															<IconCopy className='h-3.5 w-3.5' />
+														</button>
+													</div>
+												</div>
 											</div>
+										</>
+									) : (
+										<div className='flex items-center justify-between p-4 rounded-lg border'>
+											<div className='flex items-center gap-3'>
+												<div className='rounded-full bg-muted p-2'>
+													<IconUsers className='h-5 w-5 text-muted-foreground' />
+												</div>
+												<div>
+													<p className='font-medium text-muted-foreground'>Unknown Driver</p>
+													<p className='text-xs text-muted-foreground font-mono'>{vehicle.driver_id}</p>
+												</div>
+											</div>
+											<Link href={`/dashboard/drivers/${vehicle.driver_id}`}>
+												<Button size='sm' variant='outline'>
+													View Driver
+												</Button>
+											</Link>
 										</div>
-										<Link href={`/dashboard/drivers/${vehicle.driver_id}`}>
-											<Button size='sm' variant='outline'>
-												View Driver
-											</Button>
-										</Link>
-									</div>
-									<div className='mt-3 flex items-center gap-2'>
-										<p className='text-xs text-muted-foreground'>Driver ID:</p>
-										<code className='text-xs font-mono'>{vehicle.driver_id}</code>
-										<button
-											onClick={() => copyToClipboard(vehicle.driver_id, 'Driver ID')}
-											className='p-0.5 text-muted-foreground hover:text-foreground'
-										>
-											<IconCopy className='h-3.5 w-3.5' />
-										</button>
-									</div>
+									)}
 								</CardContent>
 							</Card>
 
