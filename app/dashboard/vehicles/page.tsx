@@ -1,0 +1,1058 @@
+'use client';
+
+import { useCallback, useEffect, useState } from 'react';
+import { toast } from 'sonner';
+import Link from 'next/link';
+import {
+	IconRefresh,
+	IconCar,
+	IconCheck,
+	IconX,
+	IconAlertTriangle,
+	IconChevronUp,
+	IconChevronDown,
+	IconSearch,
+	IconFilter,
+	IconShield,
+	IconClock,
+	IconEye,
+} from '@tabler/icons-react';
+import {
+	ColumnDef,
+	SortingState,
+	flexRender,
+	getCoreRowModel,
+	getSortedRowModel,
+	useReactTable,
+} from '@tanstack/react-table';
+import { vehiclesService } from '@/lib/api/vehicles.service';
+import {
+	Vehicle,
+	VehicleStatus,
+	VehicleCategory,
+	VehicleStats,
+} from '@/lib/types/vehicles';
+import { PaginationMeta } from '@/lib/types/api';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from '@/components/ui/select';
+import {
+	Table,
+	TableBody,
+	TableCell,
+	TableHead,
+	TableHeader,
+	TableRow,
+} from '@/components/ui/table';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+} from '@/components/ui/dialog';
+import {
+	AlertDialog,
+	AlertDialogAction,
+	AlertDialogCancel,
+	AlertDialogContent,
+	AlertDialogDescription,
+	AlertDialogFooter,
+	AlertDialogHeader,
+	AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+
+// ─── Helpers ────────────────────────────────────────────────────────────────
+
+function formatDate(date?: string): string {
+	if (!date) return '—';
+	return new Date(date).toLocaleDateString('en-US', {
+		year: 'numeric',
+		month: 'short',
+		day: 'numeric',
+	});
+}
+
+function daysUntil(date?: string): number | null {
+	if (!date) return null;
+	const diff = new Date(date).getTime() - Date.now();
+	return Math.ceil(diff / (1000 * 60 * 60 * 24));
+}
+
+function getStatusBadge(status: VehicleStatus) {
+	const map: Record<VehicleStatus, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' | 'warning' }> = {
+		pending: { label: 'Pending', variant: 'warning' },
+		approved: { label: 'Approved', variant: 'default' },
+		rejected: { label: 'Rejected', variant: 'destructive' },
+		suspended: { label: 'Suspended', variant: 'outline' },
+		retired: { label: 'Retired', variant: 'secondary' },
+	};
+	const { label, variant } = map[status] ?? { label: status, variant: 'secondary' };
+	const colorMap: Record<string, string> = {
+		warning: 'bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-900 dark:text-yellow-200',
+		default: 'bg-green-100 text-green-800 border-green-200 dark:bg-green-900 dark:text-green-200',
+		destructive: 'bg-red-100 text-red-800 border-red-200 dark:bg-red-900 dark:text-red-200',
+		outline: 'bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-900 dark:text-orange-200',
+		secondary: 'bg-muted text-muted-foreground',
+	};
+	return <Badge className={colorMap[variant]}>{label}</Badge>;
+}
+
+function getExpiryBadge(date?: string) {
+	const days = daysUntil(date);
+	if (days === null) return <span className='text-muted-foreground text-xs'>—</span>;
+	if (days < 0) return <Badge className='bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'>Expired</Badge>;
+	if (days <= 7) return <Badge className='bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'>{days}d</Badge>;
+	if (days <= 14) return <Badge className='bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200'>{days}d</Badge>;
+	return <Badge className='bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'>{days}d</Badge>;
+}
+
+function getCategoryLabel(cat: VehicleCategory): string {
+	const map: Record<VehicleCategory, string> = {
+		economy: 'Economy',
+		comfort: 'Comfort',
+		premium: 'Premium',
+		lux: 'Luxury',
+		xl: 'XL',
+		wav: 'Wheelchair',
+		electric: 'Electric',
+	};
+	return map[cat] ?? cat;
+}
+
+function Pagination({
+	meta,
+	onPageChange,
+	label,
+}: {
+	meta: PaginationMeta;
+	onPageChange: (offset: number) => void;
+	label: string;
+}) {
+	const totalPages = Math.ceil(meta.total / meta.limit);
+	const currentPage = Math.floor(meta.offset / meta.limit) + 1;
+	if (totalPages <= 1) return null;
+	return (
+		<div className='flex items-center justify-between mt-4'>
+			<p className='text-sm text-muted-foreground'>
+				Showing {meta.offset + 1}–{Math.min(meta.offset + meta.limit, meta.total)} of {meta.total} {label}
+			</p>
+			<div className='flex items-center gap-2'>
+				<Button
+					variant='outline'
+					size='sm'
+					onClick={() => onPageChange(meta.offset - meta.limit)}
+					disabled={currentPage === 1}
+				>
+					Previous
+				</Button>
+				<span className='text-sm text-muted-foreground'>{currentPage} / {totalPages}</span>
+				<Button
+					variant='outline'
+					size='sm'
+					onClick={() => onPageChange(meta.offset + meta.limit)}
+					disabled={currentPage === totalPages}
+				>
+					Next
+				</Button>
+			</div>
+		</div>
+	);
+}
+
+// ─── Column definitions ──────────────────────────────────────────────────────
+
+function usePendingColumns(
+	onApprove: (v: Vehicle) => void,
+	onReject: (v: Vehicle) => void,
+): ColumnDef<Vehicle>[] {
+	return [
+		{
+			accessorKey: 'make',
+			header: 'Vehicle',
+			cell: ({ row }) => {
+				const v = row.original;
+				return (
+					<div>
+						<Link
+							href={`/dashboard/vehicles/${v.id}`}
+							className='font-medium hover:underline'
+						>
+							{v.year} {v.make} {v.model}
+						</Link>
+						<p className='text-xs text-muted-foreground'>{v.color}</p>
+					</div>
+				);
+			},
+		},
+		{
+			accessorKey: 'license_plate',
+			header: 'Plate',
+			cell: ({ row }) => (
+				<code className='text-xs bg-muted px-1.5 py-0.5 rounded'>{row.original.license_plate}</code>
+			),
+		},
+		{
+			accessorKey: 'category',
+			header: 'Category',
+			cell: ({ row }) => <span className='capitalize'>{getCategoryLabel(row.original.category)}</span>,
+		},
+		{
+			accessorKey: 'driver_name',
+			header: 'Driver',
+			cell: ({ row }) => (
+				<Link
+					href={`/dashboard/drivers/${row.original.driver_id}`}
+					className='text-sm hover:underline text-blue-600 dark:text-blue-400'
+				>
+					{row.original.driver_name ?? 'Unknown'}
+				</Link>
+			),
+		},
+		{
+			accessorKey: 'created_at',
+			header: ({ column }) => (
+				<button
+					className='flex items-center gap-1 hover:text-foreground'
+					onClick={() => column.toggleSorting()}
+				>
+					Submitted
+					{column.getIsSorted() === 'asc' ? (
+						<IconChevronUp className='h-3 w-3' />
+					) : column.getIsSorted() === 'desc' ? (
+						<IconChevronDown className='h-3 w-3' />
+					) : (
+						<IconChevronDown className='h-3 w-3 opacity-30' />
+					)}
+				</button>
+			),
+			cell: ({ row }) => <span className='text-xs text-muted-foreground'>{formatDate(row.original.created_at)}</span>,
+		},
+		{
+			id: 'actions',
+			header: 'Actions',
+			cell: ({ row }) => (
+				<div className='flex items-center gap-2'>
+					<Button
+						size='sm'
+						variant='outline'
+						className='h-7 text-xs border-green-300 text-green-700 hover:bg-green-50 dark:border-green-700 dark:text-green-400 dark:hover:bg-green-950'
+						onClick={() => onApprove(row.original)}
+					>
+						<IconCheck className='h-3 w-3 mr-1' />
+						Approve
+					</Button>
+					<Button
+						size='sm'
+						variant='outline'
+						className='h-7 text-xs border-red-300 text-red-700 hover:bg-red-50 dark:border-red-700 dark:text-red-400 dark:hover:bg-red-950'
+						onClick={() => onReject(row.original)}
+					>
+						<IconX className='h-3 w-3 mr-1' />
+						Reject
+					</Button>
+				</div>
+			),
+		},
+	];
+}
+
+function useExpiringColumns(): ColumnDef<Vehicle>[] {
+	return [
+		{
+			accessorKey: 'make',
+			header: 'Vehicle',
+			cell: ({ row }) => {
+				const v = row.original;
+				return (
+					<div>
+						<Link href={`/dashboard/vehicles/${v.id}`} className='font-medium hover:underline'>
+							{v.year} {v.make} {v.model}
+						</Link>
+						<p className='text-xs text-muted-foreground'>{v.license_plate}</p>
+					</div>
+				);
+			},
+		},
+		{
+			accessorKey: 'driver_name',
+			header: 'Driver',
+			cell: ({ row }) => (
+				<Link
+					href={`/dashboard/drivers/${row.original.driver_id}`}
+					className='text-sm hover:underline text-blue-600 dark:text-blue-400'
+				>
+					{row.original.driver_name ?? 'Unknown'}
+				</Link>
+			),
+		},
+		{
+			accessorKey: 'insurance_expiry',
+			header: 'Insurance',
+			cell: ({ row }) => (
+				<div className='flex items-center gap-2'>
+					{getExpiryBadge(row.original.insurance_expiry)}
+					<span className='text-xs text-muted-foreground'>{formatDate(row.original.insurance_expiry)}</span>
+				</div>
+			),
+		},
+		{
+			accessorKey: 'registration_expiry',
+			header: 'Registration',
+			cell: ({ row }) => (
+				<div className='flex items-center gap-2'>
+					{getExpiryBadge(row.original.registration_expiry)}
+					<span className='text-xs text-muted-foreground'>{formatDate(row.original.registration_expiry)}</span>
+				</div>
+			),
+		},
+		{
+			accessorKey: 'inspection_expiry',
+			header: 'Inspection',
+			cell: ({ row }) => (
+				<div className='flex items-center gap-2'>
+					{getExpiryBadge(row.original.inspection_expiry)}
+					<span className='text-xs text-muted-foreground'>{formatDate(row.original.inspection_expiry)}</span>
+				</div>
+			),
+		},
+		{
+			id: 'view',
+			cell: ({ row }) => (
+				<Link href={`/dashboard/vehicles/${row.original.id}`}>
+					<Button size='sm' variant='ghost' className='h-7 text-xs'>
+						<IconEye className='h-3 w-3 mr-1' />
+						View
+					</Button>
+				</Link>
+			),
+		},
+	];
+}
+
+function useAllColumns(onSuspend: (v: Vehicle) => void): ColumnDef<Vehicle>[] {
+	return [
+		{
+			accessorKey: 'make',
+			header: 'Vehicle',
+			cell: ({ row }) => {
+				const v = row.original;
+				return (
+					<div>
+						<Link href={`/dashboard/vehicles/${v.id}`} className='font-medium hover:underline'>
+							{v.year} {v.make} {v.model}
+						</Link>
+						<p className='text-xs text-muted-foreground'>{v.color}</p>
+					</div>
+				);
+			},
+		},
+		{
+			accessorKey: 'license_plate',
+			header: 'Plate',
+			cell: ({ row }) => (
+				<code className='text-xs bg-muted px-1.5 py-0.5 rounded'>{row.original.license_plate}</code>
+			),
+		},
+		{
+			accessorKey: 'category',
+			header: 'Category',
+			cell: ({ row }) => <span className='capitalize text-sm'>{getCategoryLabel(row.original.category)}</span>,
+		},
+		{
+			accessorKey: 'status',
+			header: 'Status',
+			cell: ({ row }) => getStatusBadge(row.original.status),
+		},
+		{
+			accessorKey: 'driver_name',
+			header: 'Driver',
+			cell: ({ row }) => (
+				<Link
+					href={`/dashboard/drivers/${row.original.driver_id}`}
+					className='text-sm hover:underline text-blue-600 dark:text-blue-400'
+				>
+					{row.original.driver_name ?? 'Unknown'}
+				</Link>
+			),
+		},
+		{
+			accessorKey: 'created_at',
+			header: ({ column }) => (
+				<button
+					className='flex items-center gap-1 hover:text-foreground'
+					onClick={() => column.toggleSorting()}
+				>
+					Added
+					{column.getIsSorted() === 'asc' ? (
+						<IconChevronUp className='h-3 w-3' />
+					) : column.getIsSorted() === 'desc' ? (
+						<IconChevronDown className='h-3 w-3' />
+					) : (
+						<IconChevronDown className='h-3 w-3 opacity-30' />
+					)}
+				</button>
+			),
+			cell: ({ row }) => <span className='text-xs text-muted-foreground'>{formatDate(row.original.created_at)}</span>,
+		},
+		{
+			id: 'actions',
+			cell: ({ row }) => {
+				const v = row.original;
+				return (
+					<div className='flex items-center gap-2'>
+						<Link href={`/dashboard/vehicles/${v.id}`}>
+							<Button size='sm' variant='ghost' className='h-7 text-xs'>
+								<IconEye className='h-3 w-3 mr-1' />
+								View
+							</Button>
+						</Link>
+						{v.status === 'approved' && (
+							<Button
+								size='sm'
+								variant='outline'
+								className='h-7 text-xs border-orange-300 text-orange-700 hover:bg-orange-50 dark:border-orange-700 dark:text-orange-400 dark:hover:bg-orange-950'
+								onClick={() => onSuspend(v)}
+							>
+								<IconShield className='h-3 w-3 mr-1' />
+								Suspend
+							</Button>
+						)}
+					</div>
+				);
+			},
+		},
+	];
+}
+
+// ─── Page Component ──────────────────────────────────────────────────────────
+
+export default function VehiclesPage() {
+	const [activeTab, setActiveTab] = useState('pending');
+
+	// Stats
+	const [stats, setStats] = useState<VehicleStats | null>(null);
+	const [isLoadingStats, setIsLoadingStats] = useState(true);
+
+	// Pending tab
+	const [pendingVehicles, setPendingVehicles] = useState<Vehicle[]>([]);
+	const [isLoadingPending, setIsLoadingPending] = useState(true);
+	const [pendingMeta, setPendingMeta] = useState<PaginationMeta>({ total: 0, limit: 20, offset: 0, total_pages: 0 });
+	const [pendingSorting, setPendingSorting] = useState<SortingState>([]);
+
+	// Expiring tab
+	const [expiringVehicles, setExpiringVehicles] = useState<Vehicle[]>([]);
+	const [expiringCount, setExpiringCount] = useState(0);
+	const [isLoadingExpiring, setIsLoadingExpiring] = useState(true);
+	const [expiringDays, setExpiringDays] = useState(30);
+	const [expiringSorting, setExpiringSorting] = useState<SortingState>([]);
+
+	// All vehicles tab
+	const [allVehicles, setAllVehicles] = useState<Vehicle[]>([]);
+	const [isLoadingAll, setIsLoadingAll] = useState(true);
+	const [allMeta, setAllMeta] = useState<PaginationMeta>({ total: 0, limit: 20, offset: 0, total_pages: 0 });
+	const [allSorting, setAllSorting] = useState<SortingState>([]);
+	const [statusFilter, setStatusFilter] = useState<string>('all');
+	const [categoryFilter, setCategoryFilter] = useState<string>('all');
+	const [searchQuery, setSearchQuery] = useState('');
+	const [searchInput, setSearchInput] = useState('');
+
+	// Review dialog
+	const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
+	const [reviewVehicle, setReviewVehicle] = useState<Vehicle | null>(null);
+	const [reviewAction, setReviewAction] = useState<'approve' | 'reject'>('approve');
+	const [rejectionReason, setRejectionReason] = useState('');
+	const [isSubmittingReview, setIsSubmittingReview] = useState(false);
+
+	// Suspend dialog
+	const [suspendDialogOpen, setSuspendDialogOpen] = useState(false);
+	const [suspendVehicle, setSuspendVehicle] = useState<Vehicle | null>(null);
+	const [suspendReason, setSuspendReason] = useState('');
+	const [isSubmittingSuspend, setIsSubmittingSuspend] = useState(false);
+
+	// ── Fetchers ────────────────────────────────────────────────────────────
+
+	const fetchStats = useCallback(async () => {
+		try {
+			setIsLoadingStats(true);
+			const data = await vehiclesService.getStats();
+			setStats(data);
+		} catch (error) {
+			toast.error('Failed to load vehicle stats', { description: error instanceof Error ? error.message : undefined });
+		} finally {
+			setIsLoadingStats(false);
+		}
+	}, []);
+
+	const fetchPending = useCallback(async (offset = pendingMeta.offset) => {
+		try {
+			setIsLoadingPending(true);
+			const res = await vehiclesService.getPending({ limit: pendingMeta.limit, offset });
+			setPendingVehicles(res.data);
+			setPendingMeta(prev => ({ ...prev, ...res.meta, offset }));
+		} catch (error) {
+			toast.error('Failed to load pending vehicles', { description: error instanceof Error ? error.message : undefined });
+		} finally {
+			setIsLoadingPending(false);
+		}
+	}, [pendingMeta.limit, pendingMeta.offset]);
+
+	const fetchExpiring = useCallback(async () => {
+		try {
+			setIsLoadingExpiring(true);
+			const res = await vehiclesService.getExpiring({ days: expiringDays });
+			setExpiringVehicles(res.vehicles);
+			setExpiringCount(res.count);
+		} catch (error) {
+			toast.error('Failed to load expiring vehicles', { description: error instanceof Error ? error.message : undefined });
+		} finally {
+			setIsLoadingExpiring(false);
+		}
+	}, [expiringDays]);
+
+	const fetchAll = useCallback(async (offset = allMeta.offset) => {
+		try {
+			setIsLoadingAll(true);
+			const res = await vehiclesService.getAll({
+				limit: allMeta.limit,
+				offset,
+				status: statusFilter !== 'all' ? (statusFilter as Vehicle['status']) : undefined,
+				category: categoryFilter !== 'all' ? (categoryFilter as Vehicle['category']) : undefined,
+				search: searchQuery || undefined,
+			});
+			setAllVehicles(res.data);
+			setAllMeta(prev => ({ ...prev, ...res.meta, offset }));
+		} catch (error) {
+			toast.error('Failed to load vehicles', { description: error instanceof Error ? error.message : undefined });
+		} finally {
+			setIsLoadingAll(false);
+		}
+	}, [allMeta.limit, allMeta.offset, statusFilter, categoryFilter, searchQuery]);
+
+	useEffect(() => { fetchStats(); }, [fetchStats]);
+	useEffect(() => { fetchPending(0); }, [pendingMeta.limit]); // eslint-disable-line
+	useEffect(() => { fetchExpiring(); }, [fetchExpiring]);
+	useEffect(() => { fetchAll(0); }, [allMeta.limit, statusFilter, categoryFilter, searchQuery]); // eslint-disable-line
+
+	const handleRefresh = () => {
+		fetchStats();
+		fetchPending(pendingMeta.offset);
+		fetchExpiring();
+		fetchAll(allMeta.offset);
+		toast.success('Refreshed');
+	};
+
+	// ── Review actions ───────────────────────────────────────────────────────
+
+	const openApprove = (v: Vehicle) => {
+		setReviewVehicle(v);
+		setReviewAction('approve');
+		setRejectionReason('');
+		setReviewDialogOpen(true);
+	};
+
+	const openReject = (v: Vehicle) => {
+		setReviewVehicle(v);
+		setReviewAction('reject');
+		setRejectionReason('');
+		setReviewDialogOpen(true);
+	};
+
+	const submitReview = async () => {
+		if (!reviewVehicle) return;
+		if (reviewAction === 'reject' && !rejectionReason.trim()) {
+			toast.error('Rejection reason is required');
+			return;
+		}
+		try {
+			setIsSubmittingReview(true);
+			await vehiclesService.reviewVehicle(reviewVehicle.id, {
+				approved: reviewAction === 'approve',
+				rejection_reason: reviewAction === 'reject' ? rejectionReason.trim() : undefined,
+			});
+			toast.success(`Vehicle ${reviewAction === 'approve' ? 'approved' : 'rejected'} successfully`);
+			setReviewDialogOpen(false);
+			fetchPending(pendingMeta.offset);
+			fetchStats();
+		} catch (error) {
+			toast.error(`Failed to ${reviewAction} vehicle`, { description: error instanceof Error ? error.message : undefined });
+		} finally {
+			setIsSubmittingReview(false);
+		}
+	};
+
+	// ── Suspend action ───────────────────────────────────────────────────────
+
+	const openSuspend = (v: Vehicle) => {
+		setSuspendVehicle(v);
+		setSuspendReason('');
+		setSuspendDialogOpen(true);
+	};
+
+	const submitSuspend = async () => {
+		if (!suspendVehicle || !suspendReason.trim()) return;
+		try {
+			setIsSubmittingSuspend(true);
+			await vehiclesService.suspendVehicle(suspendVehicle.id, { reason: suspendReason.trim() });
+			toast.success('Vehicle suspended');
+			setSuspendDialogOpen(false);
+			fetchAll(allMeta.offset);
+			fetchStats();
+		} catch (error) {
+			toast.error('Failed to suspend vehicle', { description: error instanceof Error ? error.message : undefined });
+		} finally {
+			setIsSubmittingSuspend(false);
+		}
+	};
+
+	// ── Tables ───────────────────────────────────────────────────────────────
+
+	const pendingColumns = usePendingColumns(openApprove, openReject);
+	const expiringColumns = useExpiringColumns();
+	const allColumns = useAllColumns(openSuspend);
+
+	const pendingTable = useReactTable({
+		data: pendingVehicles,
+		columns: pendingColumns,
+		state: { sorting: pendingSorting },
+		onSortingChange: setPendingSorting,
+		getCoreRowModel: getCoreRowModel(),
+		getSortedRowModel: getSortedRowModel(),
+	});
+
+	const expiringTable = useReactTable({
+		data: expiringVehicles,
+		columns: expiringColumns,
+		state: { sorting: expiringSorting },
+		onSortingChange: setExpiringSorting,
+		getCoreRowModel: getCoreRowModel(),
+		getSortedRowModel: getSortedRowModel(),
+	});
+
+	const allTable = useReactTable({
+		data: allVehicles,
+		columns: allColumns,
+		state: { sorting: allSorting },
+		onSortingChange: setAllSorting,
+		getCoreRowModel: getCoreRowModel(),
+		getSortedRowModel: getSortedRowModel(),
+	});
+
+	// ── Render ───────────────────────────────────────────────────────────────
+
+	return (
+		<div className='flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6'>
+			{/* Header */}
+			<div className='flex items-center justify-between'>
+				<div>
+					<h1 className='text-2xl font-semibold tracking-tight'>Vehicles</h1>
+					<p className='text-sm text-muted-foreground'>Manage driver vehicles, approvals, and document compliance</p>
+				</div>
+				<Button variant='outline' size='sm' onClick={handleRefresh}>
+					<IconRefresh className='h-4 w-4 mr-2' />
+					Refresh
+				</Button>
+			</div>
+
+			{/* Stats */}
+			<div className='grid gap-4 md:grid-cols-3 lg:grid-cols-6'>
+				{[
+					{ label: 'Total', value: stats?.total_vehicles, icon: <IconCar className='h-4 w-4' />, color: 'text-blue-600' },
+					{ label: 'Pending Review', value: stats?.pending_review, icon: <IconClock className='h-4 w-4' />, color: 'text-yellow-600' },
+					{ label: 'Approved', value: stats?.approved_vehicles, icon: <IconCheck className='h-4 w-4' />, color: 'text-green-600' },
+					{ label: 'Suspended', value: stats?.suspended_vehicles, icon: <IconShield className='h-4 w-4' />, color: 'text-orange-600' },
+					{ label: 'Insurance Expiring', value: stats?.expiring_insurance, icon: <IconAlertTriangle className='h-4 w-4' />, color: 'text-red-600' },
+					{ label: 'Registration Expiring', value: stats?.expiring_registration, icon: <IconAlertTriangle className='h-4 w-4' />, color: 'text-red-600' },
+				].map(({ label, value, icon, color }) => (
+					<Card key={label}>
+						<CardHeader className='pb-1 pt-4 px-4'>
+							<CardDescription className={`flex items-center gap-1.5 ${color}`}>
+								{icon}
+								{label}
+							</CardDescription>
+						</CardHeader>
+						<CardContent className='pb-4 px-4'>
+							{isLoadingStats ? (
+								<Skeleton className='h-7 w-12' />
+							) : (
+								<p className='text-2xl font-bold'>{value ?? 0}</p>
+							)}
+						</CardContent>
+					</Card>
+				))}
+			</div>
+
+			{/* Tabs */}
+			<Tabs value={activeTab} onValueChange={setActiveTab}>
+				<TabsList>
+					<TabsTrigger value='pending' className='gap-2'>
+						Pending Review
+						{(stats?.pending_review ?? 0) > 0 && (
+							<Badge className='h-5 min-w-5 px-1 bg-yellow-500 text-white text-xs'>
+								{stats?.pending_review}
+							</Badge>
+						)}
+					</TabsTrigger>
+					<TabsTrigger value='expiring' className='gap-2'>
+						Expiring Documents
+						{(stats?.expiring_insurance ?? 0) + (stats?.expiring_registration ?? 0) > 0 && (
+							<Badge className='h-5 min-w-5 px-1 bg-red-500 text-white text-xs'>
+								{(stats?.expiring_insurance ?? 0) + (stats?.expiring_registration ?? 0)}
+							</Badge>
+						)}
+					</TabsTrigger>
+					<TabsTrigger value='all'>All Vehicles</TabsTrigger>
+				</TabsList>
+
+				{/* ── Pending Review tab ── */}
+				<TabsContent value='pending' className='mt-4'>
+					<Card>
+						<CardHeader>
+							<CardTitle>Pending Review</CardTitle>
+							<CardDescription>Vehicles awaiting admin approval before drivers can go online</CardDescription>
+						</CardHeader>
+						<CardContent>
+							{isLoadingPending ? (
+								<div className='space-y-3'>
+									{[...Array(5)].map((_, i) => <Skeleton key={i} className='h-12 w-full' />)}
+								</div>
+							) : pendingVehicles.length === 0 ? (
+								<div className='flex flex-col items-center justify-center py-12 text-center'>
+									<IconCheck className='h-10 w-10 text-green-500 mb-3' />
+									<p className='font-medium'>All caught up!</p>
+									<p className='text-sm text-muted-foreground'>No vehicles pending review</p>
+								</div>
+							) : (
+								<>
+									<div className='rounded-md border'>
+										<Table>
+											<TableHeader>
+												{pendingTable.getHeaderGroups().map(hg => (
+													<TableRow key={hg.id}>
+														{hg.headers.map(h => (
+															<TableHead key={h.id} className='text-xs uppercase tracking-wide'>
+																{flexRender(h.column.columnDef.header, h.getContext())}
+															</TableHead>
+														))}
+													</TableRow>
+												))}
+											</TableHeader>
+											<TableBody>
+												{pendingTable.getRowModel().rows.map(row => (
+													<TableRow key={row.id} className='hover:bg-muted/50'>
+														{row.getVisibleCells().map(cell => (
+															<TableCell key={cell.id}>
+																{flexRender(cell.column.columnDef.cell, cell.getContext())}
+															</TableCell>
+														))}
+													</TableRow>
+												))}
+											</TableBody>
+										</Table>
+									</div>
+									<Pagination
+										meta={pendingMeta}
+										onPageChange={(offset) => fetchPending(offset)}
+										label='vehicles'
+									/>
+								</>
+							)}
+						</CardContent>
+					</Card>
+				</TabsContent>
+
+				{/* ── Expiring Documents tab ── */}
+				<TabsContent value='expiring' className='mt-4'>
+					<Card>
+						<CardHeader>
+							<div className='flex items-center justify-between'>
+								<div>
+									<CardTitle>Expiring Documents</CardTitle>
+									<CardDescription>
+										{expiringCount} vehicle{expiringCount !== 1 ? 's' : ''} with documents expiring within {expiringDays} days
+									</CardDescription>
+								</div>
+								<div className='flex items-center gap-2'>
+									<Label className='text-xs text-muted-foreground'>Window</Label>
+									<Select
+										value={String(expiringDays)}
+										onValueChange={(v) => setExpiringDays(Number(v))}
+									>
+										<SelectTrigger className='w-24 h-8 text-xs'>
+											<SelectValue />
+										</SelectTrigger>
+										<SelectContent>
+											<SelectItem value='7'>7 days</SelectItem>
+											<SelectItem value='14'>14 days</SelectItem>
+											<SelectItem value='30'>30 days</SelectItem>
+											<SelectItem value='60'>60 days</SelectItem>
+											<SelectItem value='90'>90 days</SelectItem>
+										</SelectContent>
+									</Select>
+								</div>
+							</div>
+						</CardHeader>
+						<CardContent>
+							{isLoadingExpiring ? (
+								<div className='space-y-3'>
+									{[...Array(5)].map((_, i) => <Skeleton key={i} className='h-12 w-full' />)}
+								</div>
+							) : expiringVehicles.length === 0 ? (
+								<div className='flex flex-col items-center justify-center py-12 text-center'>
+									<IconCheck className='h-10 w-10 text-green-500 mb-3' />
+									<p className='font-medium'>All documents current</p>
+									<p className='text-sm text-muted-foreground'>No vehicles with documents expiring in the next {expiringDays} days</p>
+								</div>
+							) : (
+								<div className='rounded-md border'>
+									<Table>
+										<TableHeader>
+											{expiringTable.getHeaderGroups().map(hg => (
+												<TableRow key={hg.id}>
+													{hg.headers.map(h => (
+														<TableHead key={h.id} className='text-xs uppercase tracking-wide'>
+															{flexRender(h.column.columnDef.header, h.getContext())}
+														</TableHead>
+													))}
+												</TableRow>
+											))}
+										</TableHeader>
+										<TableBody>
+											{expiringTable.getRowModel().rows.map(row => (
+												<TableRow key={row.id} className='hover:bg-muted/50'>
+													{row.getVisibleCells().map(cell => (
+														<TableCell key={cell.id}>
+															{flexRender(cell.column.columnDef.cell, cell.getContext())}
+														</TableCell>
+													))}
+												</TableRow>
+											))}
+										</TableBody>
+									</Table>
+								</div>
+							)}
+						</CardContent>
+					</Card>
+				</TabsContent>
+
+				{/* ── All Vehicles tab ── */}
+				<TabsContent value='all' className='mt-4'>
+					<Card>
+						<CardHeader>
+							<div className='flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between'>
+								<div>
+									<CardTitle>All Vehicles</CardTitle>
+									<CardDescription>{allMeta.total} vehicles total</CardDescription>
+								</div>
+								<div className='flex flex-wrap items-center gap-2'>
+									{/* Search */}
+									<div className='relative'>
+										<IconSearch className='absolute left-2.5 top-2 h-4 w-4 text-muted-foreground' />
+										<Input
+											placeholder='Search make, model, plate…'
+											className='pl-8 h-8 w-52 text-xs'
+											value={searchInput}
+											onChange={(e) => setSearchInput(e.target.value)}
+											onKeyDown={(e) => { if (e.key === 'Enter') setSearchQuery(searchInput); }}
+										/>
+									</div>
+									{/* Status filter */}
+									<Select value={statusFilter} onValueChange={setStatusFilter}>
+										<SelectTrigger className='h-8 w-36 text-xs'>
+											<IconFilter className='h-3 w-3 mr-1' />
+											<SelectValue placeholder='Status' />
+										</SelectTrigger>
+										<SelectContent>
+											<SelectItem value='all'>All statuses</SelectItem>
+											<SelectItem value='pending'>Pending</SelectItem>
+											<SelectItem value='approved'>Approved</SelectItem>
+											<SelectItem value='rejected'>Rejected</SelectItem>
+											<SelectItem value='suspended'>Suspended</SelectItem>
+											<SelectItem value='retired'>Retired</SelectItem>
+										</SelectContent>
+									</Select>
+									{/* Category filter */}
+									<Select value={categoryFilter} onValueChange={setCategoryFilter}>
+										<SelectTrigger className='h-8 w-36 text-xs'>
+											<SelectValue placeholder='Category' />
+										</SelectTrigger>
+										<SelectContent>
+											<SelectItem value='all'>All categories</SelectItem>
+											<SelectItem value='economy'>Economy</SelectItem>
+											<SelectItem value='comfort'>Comfort</SelectItem>
+											<SelectItem value='premium'>Premium</SelectItem>
+											<SelectItem value='lux'>Luxury</SelectItem>
+											<SelectItem value='xl'>XL</SelectItem>
+											<SelectItem value='wav'>Wheelchair</SelectItem>
+											<SelectItem value='electric'>Electric</SelectItem>
+										</SelectContent>
+									</Select>
+								</div>
+							</div>
+						</CardHeader>
+						<CardContent>
+							{isLoadingAll ? (
+								<div className='space-y-3'>
+									{[...Array(5)].map((_, i) => <Skeleton key={i} className='h-12 w-full' />)}
+								</div>
+							) : allVehicles.length === 0 ? (
+								<div className='flex flex-col items-center justify-center py-12 text-center'>
+									<IconCar className='h-10 w-10 text-muted-foreground mb-3' />
+									<p className='font-medium'>No vehicles found</p>
+									<p className='text-sm text-muted-foreground'>Try adjusting your filters</p>
+								</div>
+							) : (
+								<>
+									<div className='rounded-md border'>
+										<Table>
+											<TableHeader>
+												{allTable.getHeaderGroups().map(hg => (
+													<TableRow key={hg.id}>
+														{hg.headers.map(h => (
+															<TableHead key={h.id} className='text-xs uppercase tracking-wide'>
+																{flexRender(h.column.columnDef.header, h.getContext())}
+															</TableHead>
+														))}
+													</TableRow>
+												))}
+											</TableHeader>
+											<TableBody>
+												{allTable.getRowModel().rows.map(row => (
+													<TableRow key={row.id} className='hover:bg-muted/50'>
+														{row.getVisibleCells().map(cell => (
+															<TableCell key={cell.id}>
+																{flexRender(cell.column.columnDef.cell, cell.getContext())}
+															</TableCell>
+														))}
+													</TableRow>
+												))}
+											</TableBody>
+										</Table>
+									</div>
+									<Pagination
+										meta={allMeta}
+										onPageChange={(offset) => fetchAll(offset)}
+										label='vehicles'
+									/>
+								</>
+							)}
+						</CardContent>
+					</Card>
+				</TabsContent>
+			</Tabs>
+
+			{/* ── Review Dialog ────────────────────────────────────────────────── */}
+			<Dialog open={reviewDialogOpen} onOpenChange={setReviewDialogOpen}>
+				<DialogContent className='sm:max-w-md'>
+					<DialogHeader>
+						<DialogTitle>
+							{reviewAction === 'approve' ? 'Approve Vehicle' : 'Reject Vehicle'}
+						</DialogTitle>
+						<DialogDescription>
+							{reviewVehicle && (
+								<span>
+									{reviewVehicle.year} {reviewVehicle.make} {reviewVehicle.model} — {reviewVehicle.license_plate}
+								</span>
+							)}
+						</DialogDescription>
+					</DialogHeader>
+					{reviewAction === 'approve' ? (
+						<div className='flex items-start gap-3 rounded-lg bg-green-50 dark:bg-green-950 p-4 text-sm'>
+							<IconCheck className='h-5 w-5 text-green-600 dark:text-green-400 shrink-0 mt-0.5' />
+							<div>
+								<p className='font-medium text-green-800 dark:text-green-200'>Approve this vehicle?</p>
+								<p className='text-green-700 dark:text-green-300 mt-1'>
+									The driver will be able to go online and accept rides with this vehicle.
+								</p>
+							</div>
+						</div>
+					) : (
+						<div className='space-y-3'>
+							<div className='flex items-start gap-3 rounded-lg bg-red-50 dark:bg-red-950 p-4 text-sm'>
+								<IconX className='h-5 w-5 text-red-600 dark:text-red-400 shrink-0 mt-0.5' />
+								<p className='text-red-800 dark:text-red-200'>
+									The driver will be notified and asked to resubmit with corrections.
+								</p>
+							</div>
+							<div className='space-y-1.5'>
+								<Label htmlFor='rejection-reason'>
+									Rejection reason <span className='text-destructive'>*</span>
+								</Label>
+								<Textarea
+									id='rejection-reason'
+									placeholder='Explain why this vehicle is being rejected…'
+									rows={3}
+									value={rejectionReason}
+									onChange={(e) => setRejectionReason(e.target.value)}
+								/>
+							</div>
+						</div>
+					)}
+					<DialogFooter>
+						<Button variant='outline' onClick={() => setReviewDialogOpen(false)} disabled={isSubmittingReview}>
+							Cancel
+						</Button>
+						<Button
+							variant={reviewAction === 'approve' ? 'default' : 'destructive'}
+							onClick={submitReview}
+							disabled={isSubmittingReview || (reviewAction === 'reject' && !rejectionReason.trim())}
+						>
+							{isSubmittingReview ? 'Submitting…' : reviewAction === 'approve' ? 'Approve Vehicle' : 'Reject Vehicle'}
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
+
+			{/* ── Suspend Dialog ───────────────────────────────────────────────── */}
+			<AlertDialog open={suspendDialogOpen} onOpenChange={setSuspendDialogOpen}>
+				<AlertDialogContent>
+					<AlertDialogHeader>
+						<AlertDialogTitle>Suspend Vehicle</AlertDialogTitle>
+						<AlertDialogDescription>
+							{suspendVehicle && (
+								<>
+									{suspendVehicle.year} {suspendVehicle.make} {suspendVehicle.model} ({suspendVehicle.license_plate}) will be suspended and the driver won&apos;t be able to use it.
+								</>
+							)}
+						</AlertDialogDescription>
+					</AlertDialogHeader>
+					<div className='px-6 pb-2 space-y-1.5'>
+						<Label htmlFor='suspend-reason'>
+							Reason <span className='text-destructive'>*</span>
+						</Label>
+						<Textarea
+							id='suspend-reason'
+							placeholder='Reason for suspension…'
+							rows={3}
+							value={suspendReason}
+							onChange={(e) => setSuspendReason(e.target.value)}
+						/>
+					</div>
+					<AlertDialogFooter>
+						<AlertDialogCancel disabled={isSubmittingSuspend}>Cancel</AlertDialogCancel>
+						<AlertDialogAction
+							className='bg-destructive hover:bg-destructive/90'
+							onClick={submitSuspend}
+							disabled={isSubmittingSuspend || !suspendReason.trim()}
+						>
+							{isSubmittingSuspend ? 'Suspending…' : 'Suspend Vehicle'}
+						</AlertDialogAction>
+					</AlertDialogFooter>
+				</AlertDialogContent>
+			</AlertDialog>
+		</div>
+	);
+}
