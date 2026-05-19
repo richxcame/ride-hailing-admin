@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
-import { getToken } from '@/lib/api/client';
+import { getToken, getRefreshToken } from '@/lib/api/client';
 
 interface AuthProviderProps {
   children: React.ReactNode;
@@ -23,16 +23,26 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const pathname = usePathname();
   const router = useRouter();
 
+  // Keep the latest auth actions without re-running the init effect,
+  // since useAuth() returns new function references on every render.
+  const loadUserRef = useRef(loadUser);
+  const logoutRef = useRef(logout);
+
+  useEffect(() => {
+    loadUserRef.current = loadUser;
+    logoutRef.current = logout;
+  }, [loadUser, logout]);
+
   useEffect(() => {
     const initAuth = async () => {
-      const token = getToken();
-
-      if (token) {
+      // Load the user if we have an access token, or only a refresh token —
+      // in the latter case the 401 interceptor silently renews the session.
+      if (getToken() || getRefreshToken()) {
         try {
-          await loadUser();
+          await loadUserRef.current();
         } catch (error) {
           console.error('Failed to load user:', error);
-          logout();
+          logoutRef.current();
         }
       }
 

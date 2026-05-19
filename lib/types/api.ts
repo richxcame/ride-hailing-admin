@@ -20,7 +20,7 @@ export interface PaginationMeta {
   offset: number;
   total: number;
   total_pages: number;
-  stats?: Record<string, any>; // Optional stats object for endpoints that include statistics
+  stats?: Record<string, unknown>; // Optional stats object for endpoints that include statistics
 }
 
 // Paginated response (new format with meta)
@@ -54,17 +54,9 @@ export interface LoginRequest {
   password: string;
 }
 
-export interface RegisterRequest {
-  email: string;
-  password: string;
-  first_name: string;
-  last_name: string;
-  phone_number: string;
-  role: 'rider' | 'driver' | 'admin';
-}
-
 export interface AuthResponse {
   token: string;
+  refresh_token?: string;
   user: {
     id: string;
     email: string;

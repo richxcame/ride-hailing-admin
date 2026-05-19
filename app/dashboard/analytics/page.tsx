@@ -4,7 +4,6 @@ import { useEffect, useState, useCallback } from 'react';
 import { toast } from 'sonner';
 import {
 	IconRefresh,
-	IconCalendar,
 	IconTrendingUp,
 	IconTrendingDown,
 	IconCar,
@@ -15,7 +14,6 @@ import {
 	IconMapPin,
 	IconPlayerPlay,
 	IconChartBar,
-	IconGift,
 	IconFileText,
 	IconArrowUp,
 	IconArrowDown,
@@ -33,8 +31,6 @@ import type {
 } from '@/lib/types/models';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Separator } from '@/components/ui/separator';

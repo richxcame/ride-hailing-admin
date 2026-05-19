@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, use } from 'react';
+import { useEffect, useState, use, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import {
@@ -13,7 +13,6 @@ import {
 	IconCurrencyDollar,
 	IconStar,
 	IconRoute,
-	IconCalendar,
 	IconId,
 	IconX,
 	IconCheck,
@@ -29,7 +28,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
 	AlertDialog,
@@ -49,7 +48,7 @@ export default function RideDetailPage({ params }: { params: Promise<{ id: strin
 	const [isLoading, setIsLoading] = useState(true);
 	const [showCancelDialog, setShowCancelDialog] = useState(false);
 
-	const fetchRide = async () => {
+	const fetchRide = useCallback(async () => {
 		try {
 			setIsLoading(true);
 			const data = await adminService.getRide(resolvedParams.id);
@@ -60,11 +59,11 @@ export default function RideDetailPage({ params }: { params: Promise<{ id: strin
 		} finally {
 			setIsLoading(false);
 		}
-	};
+	}, [resolvedParams.id]);
 
 	useEffect(() => {
 		fetchRide();
-	}, [resolvedParams.id]);
+	}, [fetchRide]);
 
 	const formatDateTime = (dateString: string) => {
 		return new Date(dateString).toLocaleString('en-US', {

@@ -8,7 +8,6 @@ import {
 	IconClock,
 	IconShieldCheck,
 	IconId,
-	IconX,
 	IconExternalLink,
 	IconFileText,
 	IconShield,
@@ -143,7 +142,7 @@ export function FraudAlertDetailSheet({
 			setShowInvestigateDialog(false);
 			setNotes('');
 			toast.success('Alert marked as investigating');
-		} catch (error) {
+		} catch {
 			toast.error('Failed to update alert');
 		} finally {
 			setIsLoading(false);
@@ -160,7 +159,7 @@ export function FraudAlertDetailSheet({
 			setActionTaken('');
 			setNotes('');
 			toast.success(`Alert marked as ${resolveStatus === 'confirmed' ? 'confirmed fraud' : 'false positive'}`);
-		} catch (error) {
+		} catch {
 			toast.error('Failed to resolve alert');
 		} finally {
 			setIsLoading(false);

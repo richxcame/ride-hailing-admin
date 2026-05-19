@@ -20,7 +20,6 @@ import {
 	IconWifi,
 	IconDog,
 	IconWheelchair,
-	IconPackage,
 	IconCalendar,
 	IconId,
 	IconClock,

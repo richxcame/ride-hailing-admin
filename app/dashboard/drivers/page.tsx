@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { toast } from 'sonner';
 import {
 	IconRefresh,
@@ -57,6 +57,8 @@ export default function DriversPage() {
 	const [isLoadingPending, setIsLoadingPending] = useState(true);
 	const [activeTab, setActiveTab] = useState('all');
 	const [searchQuery, setSearchQuery] = useState('');
+	const searchQueryRef = useRef(searchQuery);
+	searchQueryRef.current = searchQuery;
 	const [statusFilter, setStatusFilter] = useState<string>('all');
 	const [stats, setStats] = useState<DriverStats | null>(null);
 	const [isLoadingStats, setIsLoadingStats] = useState(true);
@@ -120,7 +122,7 @@ export default function DriversPage() {
 				limit: pagination.limit,
 				offset: pagination.offset,
 				...(statusFilter !== 'all' && { status: statusFilter as 'online' | 'offline' | 'available' | 'pending' }),
-				...(searchQuery && { search: searchQuery }),
+				...(searchQueryRef.current && { search: searchQueryRef.current }),
 			});
 			setDrivers(response.data);
 			setPagination((prev) => ({ ...prev, total: response.meta.total }));
@@ -130,7 +132,7 @@ export default function DriversPage() {
 		} finally {
 			setIsLoadingDrivers(false);
 		}
-	}, [pagination.limit, pagination.offset, statusFilter, searchQuery]);
+	}, [pagination.limit, pagination.offset, statusFilter]);
 
 	const fetchPendingDrivers = useCallback(async () => {
 		try {
@@ -156,11 +158,11 @@ export default function DriversPage() {
 
 	useEffect(() => {
 		fetchDrivers();
-	}, [pagination.offset, pagination.limit, statusFilter]);
+	}, [fetchDrivers]);
 
 	useEffect(() => {
 		fetchPendingDrivers();
-	}, [pendingPagination.offset, pendingPagination.limit]);
+	}, [fetchPendingDrivers]);
 
 	const handleSearch = () => {
 		setPagination((prev) => ({ ...prev, offset: 0 }));
@@ -191,7 +193,7 @@ export default function DriversPage() {
 			const driver = await adminService.getDriver(driverId);
 			setSelectedDriver(driver);
 			setIsDetailSheetOpen(true);
-		} catch (error) {
+		} catch {
 			toast.error('Failed to load driver details');
 		}
 	};

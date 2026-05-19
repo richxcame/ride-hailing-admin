@@ -10,7 +10,6 @@ import {
 	IconX,
 	IconCheck,
 	IconStar,
-	IconCalendar,
 	IconClock,
 	IconPlayerPlay,
 	IconTrendingUp,
@@ -28,8 +27,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from '@/components/ui/select';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
+import { Card, CardContent, CardDescription, CardHeader } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import {
 	AlertDialog,
@@ -75,7 +73,7 @@ export default function RidesPage() {
 	const [rideToCancel, setRideToCancel] = useState<Ride | null>(null);
 	const [showCancelDialog, setShowCancelDialog] = useState(false);
 
-	const fetchRides = async () => {
+	const fetchRides = useCallback(async () => {
 		try {
 			setIsLoading(true);
 			const response = await adminService.getRecentRides({
@@ -93,9 +91,9 @@ export default function RidesPage() {
 		} finally {
 			setIsLoading(false);
 		}
-	};
+	}, [pagination.limit, pagination.offset, statusFilter, startDate, endDate]);
 
-	const fetchStats = async () => {
+	const fetchStats = useCallback(async () => {
 		try {
 			const rideStats = await adminService.getRideStats({
 				...(startDate && { start_date: startDate.toISOString().split('T')[0] }),
@@ -105,12 +103,12 @@ export default function RidesPage() {
 		} catch (error) {
 			console.error('Failed to load ride stats:', error);
 		}
-	};
+	}, [startDate, endDate]);
 
 	useEffect(() => {
 		fetchRides();
 		fetchStats();
-	}, [pagination.offset, pagination.limit, statusFilter, startDate, endDate]);
+	}, [fetchRides, fetchStats]);
 
 	const handleRefresh = () => {
 		fetchRides();
@@ -122,21 +120,21 @@ export default function RidesPage() {
 		setPagination((prev) => ({ ...prev, offset: newOffset }));
 	};
 
-	const handleViewRide = (rideId: string) => {
+	const handleViewRide = useCallback((rideId: string) => {
 		const ride = rides.find((r) => r.id === rideId);
 		if (ride) {
 			setSelectedRide(ride);
 			setIsDetailSheetOpen(true);
 		}
-	};
+	}, [rides]);
 
-	const handleCancelClick = (rideId: string) => {
+	const handleCancelClick = useCallback((rideId: string) => {
 		const ride = rides.find((r) => r.id === rideId);
 		if (ride) {
 			setRideToCancel(ride);
 			setShowCancelDialog(true);
 		}
-	};
+	}, [rides]);
 
 	const handleRideAction = useCallback(
 		(action: 'view' | 'cancel', rideId: string) => {
@@ -146,7 +144,7 @@ export default function RidesPage() {
 				handleCancelClick(rideId);
 			}
 		},
-		[rides]
+		[handleViewRide, handleCancelClick]
 	);
 
 	const handleConfirmCancel = async () => {

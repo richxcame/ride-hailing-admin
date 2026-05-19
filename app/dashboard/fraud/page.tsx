@@ -164,7 +164,7 @@ export default function FraudAlertsPage() {
 				await fraudService.investigateAlert(alertId);
 				toast.success('Alert marked as investigating');
 				fetchAlerts();
-			} catch (error) {
+			} catch {
 				toast.error('Failed to update alert');
 			}
 		} else if (action === 'resolve') {

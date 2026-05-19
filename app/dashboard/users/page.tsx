@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { toast } from 'sonner';
 import {
 	IconRefresh,
@@ -53,6 +53,8 @@ export default function UsersPage() {
 	const [users, setUsers] = useState<User[]>([]);
 	const [isLoading, setIsLoading] = useState(true);
 	const [searchQuery, setSearchQuery] = useState('');
+	const searchQueryRef = useRef(searchQuery);
+	searchQueryRef.current = searchQuery;
 	const [roleFilter, setRoleFilter] = useState<string>('all');
 	const [statusFilter, setStatusFilter] = useState<string>('all');
 	const [pagination, setPagination] = useState({
@@ -114,7 +116,7 @@ export default function UsersPage() {
 				offset: pagination.offset,
 				...(roleFilter !== 'all' && { role: roleFilter }),
 				...(statusFilter !== 'all' && { status: statusFilter as 'active' | 'inactive' }),
-				...(searchQuery && { search: searchQuery }),
+				...(searchQueryRef.current && { search: searchQueryRef.current }),
 			});
 
 			setUsers(response.data);
@@ -131,7 +133,7 @@ export default function UsersPage() {
 		} finally {
 			setIsLoading(false);
 		}
-	}, [pagination.limit, pagination.offset, roleFilter, statusFilter, searchQuery]);
+	}, [pagination.limit, pagination.offset, roleFilter, statusFilter]);
 
 	useEffect(() => {
 		fetchStats();
@@ -139,7 +141,7 @@ export default function UsersPage() {
 
 	useEffect(() => {
 		fetchUsers();
-	}, [pagination.offset, pagination.limit, roleFilter, statusFilter]);
+	}, [fetchUsers]);
 
 	const handleSearch = () => {
 		setPagination((prev) => ({ ...prev, offset: 0 }));
@@ -162,7 +164,7 @@ export default function UsersPage() {
 			const user = await adminService.getUser(userId);
 			setSelectedUser(user);
 			setIsDetailSheetOpen(true);
-		} catch (error) {
+		} catch {
 			toast.error('Failed to load user details');
 		}
 	};

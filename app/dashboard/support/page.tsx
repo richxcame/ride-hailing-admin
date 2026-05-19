@@ -422,7 +422,7 @@ export default function SupportTicketsPage() {
 			setIsLoadingMessages(true);
 			const msgs = await supportService.getTicketMessages(ticket.id);
 			setMessages(Array.isArray(msgs) ? msgs : []);
-		} catch (error) {
+		} catch {
 			toast.error('Failed to load messages');
 			setMessages([]);
 		} finally {

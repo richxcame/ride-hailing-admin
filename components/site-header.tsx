@@ -3,39 +3,58 @@
 import { usePathname } from 'next/navigation';
 import { Separator } from '@/components/ui/separator';
 import { SidebarTrigger } from '@/components/ui/sidebar';
+import { ThemeToggle } from '@/components/theme-toggle';
 
+// Exact-path titles, longest paths first so nested routes match before parents.
 const pageTitles: Record<string, string> = {
-	'/dashboard': 'Dashboard',
+	'/dashboard/analytics': 'Analytics',
+	'/dashboard/fraud/statistics': 'Fraud Statistics',
+	'/dashboard/fraud': 'Fraud Detection',
 	'/dashboard/users': 'Users',
 	'/dashboard/drivers': 'Drivers',
 	'/dashboard/rides': 'Rides',
-	'/dashboard/analytics': 'Analytics',
-	'/dashboard/fraud': 'Fraud Detection',
-	'/dashboard/fraud/statistics': 'Fraud Statistics',
+	'/dashboard/vehicles': 'Vehicles',
+	'/dashboard/documents': 'Documents',
+	'/dashboard/earnings': 'Earnings & Payouts',
+	'/dashboard/payments': 'Payments',
 	'/dashboard/promos': 'Promos',
+	'/dashboard/support': 'Support Tickets',
+	'/dashboard/disputes': 'Disputes',
+	'/dashboard/cancellations': 'Cancellations',
+	'/dashboard/notifications': 'Notifications',
+	'/dashboard/geography': 'Geography',
+	'/dashboard/pricing': 'Pricing',
+	'/dashboard/ride-types': 'Ride Types',
 	'/dashboard/settings': 'Settings',
+	'/dashboard': 'Dashboard',
+};
+
+// Singular labels used for dynamic detail routes (e.g. /dashboard/users/123).
+const detailTitles: Record<string, string> = {
+	Users: 'User Details',
+	Drivers: 'Driver Details',
+	Rides: 'Ride Details',
+	Vehicles: 'Vehicle Details',
+	'Fraud Detection': 'Fraud Alert Details',
+	Promos: 'Promo Details',
 };
 
 export function SiteHeader() {
 	const pathname = usePathname();
 
-	// Get title based on current path
 	const getPageTitle = () => {
-		// Check for exact match first
 		if (pageTitles[pathname]) {
 			return pageTitles[pathname];
 		}
 
-		// Check for detail pages (e.g., /dashboard/users/123)
-		for (const [path, title] of Object.entries(pageTitles)) {
-			if (pathname.startsWith(`${path}/`)) {
-				// Return singular form for detail pages
-				if (title === 'Users') return 'User Details';
-				if (title === 'Drivers') return 'Driver Details';
-				if (title === 'Rides') return 'Ride Details';
-				if (title === 'Fraud Detection') return 'Fraud Alert Details';
-				return title;
-			}
+		// Match the longest registered path that is a prefix of the current route.
+		const match = Object.keys(pageTitles)
+			.filter((path) => pathname.startsWith(`${path}/`))
+			.sort((a, b) => b.length - a.length)[0];
+
+		if (match) {
+			const title = pageTitles[match];
+			return detailTitles[title] ?? title;
 		}
 
 		return 'Dashboard';
@@ -50,6 +69,9 @@ export function SiteHeader() {
 					className='mx-2 data-[orientation=vertical]:h-4'
 				/>
 				<h1 className='text-base font-medium'>{getPageTitle()}</h1>
+				<div className='ml-auto flex items-center gap-2'>
+					<ThemeToggle />
+				</div>
 			</div>
 		</header>
 	);

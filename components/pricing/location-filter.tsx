@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
 	Select,
 	SelectContent,
@@ -42,69 +42,62 @@ export function LocationFilter({
 	const [cities, setCities] = useState<City[]>([]);
 	const [zones, setZones] = useState<PricingZone[]>([]);
 
-	const fetchCountries = useCallback(async () => {
-		try {
-			const response = await geographyService.getCountries({ limit: 100 });
-			setCountries(response.data);
-		} catch {
-			setCountries([]);
-		}
+	// Load countries once on mount.
+	useEffect(() => {
+		let active = true;
+		geographyService
+			.getCountries({ limit: 100 })
+			.then((res) => active && setCountries(res.data))
+			.catch(() => active && setCountries([]));
+		return () => {
+			active = false;
+		};
 	}, []);
 
-	const fetchRegions = useCallback(async (cId: string) => {
-		try {
-			const response = await geographyService.getRegions(cId, { limit: 100 });
-			setRegions(response.data);
-		} catch {
-			setRegions([]);
-		}
-	}, []);
-
-	const fetchCities = useCallback(async (rId: string) => {
-		try {
-			const response = await geographyService.getCities(rId, { limit: 100 });
-			setCities(response.data);
-		} catch {
-			setCities([]);
-		}
-	}, []);
-
-	const fetchZones = useCallback(async (cId: string) => {
-		try {
-			const response = await geographyService.getZones(cId, { limit: 100 });
-			setZones(response.data);
-		} catch {
-			setZones([]);
-		}
-	}, []);
-
+	// Load regions whenever the selected country changes.
 	useEffect(() => {
-		fetchCountries();
-	}, [fetchCountries]);
+		if (!countryId) return;
+		let active = true;
+		geographyService
+			.getRegions(countryId, { limit: 100 })
+			.then((res) => active && setRegions(res.data))
+			.catch(() => active && setRegions([]));
+		return () => {
+			active = false;
+		};
+	}, [countryId]);
 
+	// Load cities whenever the selected region changes.
 	useEffect(() => {
-		if (countryId) {
-			fetchRegions(countryId);
-		} else {
-			setRegions([]);
-		}
-	}, [countryId, fetchRegions]);
+		if (!regionId) return;
+		let active = true;
+		geographyService
+			.getCities(regionId, { limit: 100 })
+			.then((res) => active && setCities(res.data))
+			.catch(() => active && setCities([]));
+		return () => {
+			active = false;
+		};
+	}, [regionId]);
 
+	// Load zones whenever the selected city changes (only when zones are shown).
 	useEffect(() => {
-		if (regionId) {
-			fetchCities(regionId);
-		} else {
-			setCities([]);
-		}
-	}, [regionId, fetchCities]);
+		if (!cityId || !showZone) return;
+		let active = true;
+		geographyService
+			.getZones(cityId, { limit: 100 })
+			.then((res) => active && setZones(res.data))
+			.catch(() => active && setZones([]));
+		return () => {
+			active = false;
+		};
+	}, [cityId, showZone]);
 
-	useEffect(() => {
-		if (cityId && showZone) {
-			fetchZones(cityId);
-		} else {
-			setZones([]);
-		}
-	}, [cityId, showZone, fetchZones]);
+	// Derive visible options during render so stale child options are never
+	// shown for an unselected parent (avoids resetting state inside effects).
+	const visibleRegions = countryId ? regions : [];
+	const visibleCities = regionId ? cities : [];
+	const visibleZones = cityId && showZone ? zones : [];
 
 	const handleCountryChange = (value: string) => {
 		const val = value === 'all' ? undefined : value;
@@ -167,7 +160,7 @@ export function LocationFilter({
 					</SelectTrigger>
 					<SelectContent>
 						<SelectItem value='all'>All Regions</SelectItem>
-						{regions.map((r) => (
+						{visibleRegions.map((r) => (
 							<SelectItem key={r.id} value={r.id}>
 								{r.name}
 							</SelectItem>
@@ -188,7 +181,7 @@ export function LocationFilter({
 					</SelectTrigger>
 					<SelectContent>
 						<SelectItem value='all'>All Cities</SelectItem>
-						{cities.map((c) => (
+						{visibleCities.map((c) => (
 							<SelectItem key={c.id} value={c.id}>
 								{c.name}
 							</SelectItem>
@@ -210,7 +203,7 @@ export function LocationFilter({
 						</SelectTrigger>
 						<SelectContent>
 							<SelectItem value='all'>All Zones</SelectItem>
-							{zones.map((z) => (
+							{visibleZones.map((z) => (
 								<SelectItem key={z.id} value={z.id}>
 									{z.name}
 								</SelectItem>

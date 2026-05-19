@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { toast } from 'sonner';
 import {
 	ColumnDef,
@@ -319,6 +319,8 @@ export default function PaymentsPage() {
 	const [statusFilter, setStatusFilter] = useState<string>('all');
 	const [methodFilter, setMethodFilter] = useState<string>('all');
 	const [searchQuery, setSearchQuery] = useState('');
+	const searchQueryRef = useRef(searchQuery);
+	searchQueryRef.current = searchQuery;
 
 	// Table sorting state
 	const [sorting, setSorting] = useState<SortingState>([]);
@@ -343,7 +345,7 @@ export default function PaymentsPage() {
 				offset: pagination.offset,
 				...(statusFilter !== 'all' && { status: statusFilter }),
 				...(methodFilter !== 'all' && { method: methodFilter }),
-				...(searchQuery && { search: searchQuery }),
+				...(searchQueryRef.current && { search: searchQueryRef.current }),
 			});
 			setTransactions(response.data);
 			setPagination((prev) => ({ ...prev, total: response.meta.total }));
@@ -353,7 +355,7 @@ export default function PaymentsPage() {
 		} finally {
 			setIsLoading(false);
 		}
-	}, [pagination.limit, pagination.offset, statusFilter, methodFilter, searchQuery]);
+	}, [pagination.limit, pagination.offset, statusFilter, methodFilter]);
 
 	// Fetch stats
 	const fetchStats = useCallback(async () => {
@@ -374,7 +376,7 @@ export default function PaymentsPage() {
 
 	useEffect(() => {
 		fetchTransactions();
-	}, [pagination.offset, pagination.limit, statusFilter, methodFilter]);
+	}, [fetchTransactions]);
 
 	// Handlers
 	const handleSearch = () => {
@@ -398,7 +400,7 @@ export default function PaymentsPage() {
 			const transaction = await paymentsService.getTransaction(transactionId);
 			setSelectedTransaction(transaction);
 			setIsDetailSheetOpen(true);
-		} catch (error) {
+		} catch {
 			toast.error('Failed to load transaction details');
 		}
 	};

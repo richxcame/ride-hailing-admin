@@ -1,30 +1,21 @@
 import { api, authClient } from './client';
-import {
-  LoginRequest,
-  RegisterRequest,
-  AuthResponse,
-} from '@/lib/types/api';
+import { LoginRequest, AuthResponse } from '@/lib/types/api';
 import { User } from '@/lib/types/models';
 
 /**
  * Auth Service API Client
  * Connects to Auth Service (:8081)
+ *
+ * Note: the auth service is phone-OTP-first for riders/drivers. Admin/staff
+ * accounts authenticate via the dedicated email + password endpoint below.
  */
 export const authService = {
   /**
-   * Login with email and password
-   * POST /api/v1/auth/login
+   * Log in an admin/staff account with email and password.
+   * POST /api/v1/auth/admin/login
    */
   login: async (credentials: LoginRequest): Promise<AuthResponse> => {
-    return api.post<AuthResponse>(authClient, '/api/v1/auth/login', credentials);
-  },
-
-  /**
-   * Register a new user account
-   * POST /api/v1/auth/register
-   */
-  register: async (data: RegisterRequest): Promise<AuthResponse> => {
-    return api.post<AuthResponse>(authClient, '/api/v1/auth/register', data);
+    return api.post<AuthResponse>(authClient, '/api/v1/auth/admin/login', credentials);
   },
 
   /**

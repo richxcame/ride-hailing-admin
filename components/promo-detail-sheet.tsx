@@ -1,13 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
 import {
 	IconX,
 	IconTag,
 	IconCurrencyDollar,
 	IconUsers,
-	IconCalendar,
 	IconTrendingUp,
 	IconAlertCircle,
 } from '@tabler/icons-react';
@@ -60,13 +59,7 @@ export function PromoDetailSheet({ promoId, open, onOpenChange, onUpdate }: Prom
 	const [isLoading, setIsLoading] = useState(false);
 	const [isDeactivating, setIsDeactivating] = useState(false);
 
-	useEffect(() => {
-		if (open && promoId) {
-			fetchPromoDetails();
-		}
-	}, [open, promoId]);
-
-	const fetchPromoDetails = async () => {
+	const fetchPromoDetails = useCallback(async () => {
 		if (!promoId) return;
 
 		try {
@@ -83,7 +76,13 @@ export function PromoDetailSheet({ promoId, open, onOpenChange, onUpdate }: Prom
 		} finally {
 			setIsLoading(false);
 		}
-	};
+	}, [promoId]);
+
+	useEffect(() => {
+		if (open && promoId) {
+			fetchPromoDetails();
+		}
+	}, [open, promoId, fetchPromoDetails]);
 
 	const handleDeactivate = async () => {
 		if (!promoId) return;

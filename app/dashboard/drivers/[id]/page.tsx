@@ -116,25 +116,25 @@ export default function DriverDetailPage() {
 		}
 	}, []);
 
-	const fetchDriver = async () => {
+	const fetchDriver = useCallback(async () => {
 		try {
 			setIsLoading(true);
 			const driverData = await adminService.getDriver(driverId);
 			setDriver(driverData);
-		} catch (error) {
+		} catch {
 			toast.error('Failed to load driver details');
 			router.push('/dashboard/drivers');
 		} finally {
 			setIsLoading(false);
 		}
-	};
+	}, [driverId, router]);
 
 	useEffect(() => {
 		if (driverId) {
 			fetchDriver();
 			fetchBgCheck(driverId);
 		}
-	}, [driverId]);
+	}, [driverId, fetchDriver, fetchBgCheck]);
 
 	const handleRefresh = () => {
 		fetchDriver();

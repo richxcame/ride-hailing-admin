@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { devtools, persist } from 'zustand/middleware';
 import { authService } from '@/lib/api/auth.service';
-import { setToken, removeToken } from '@/lib/api/client';
+import { setToken, setRefreshToken, clearSession } from '@/lib/api/client';
 import { LoginRequest, AuthResponse } from '@/lib/types/api';
 import { User } from '@/lib/types/models';
 
@@ -23,7 +23,7 @@ interface AuthState {
 export const useAuthStore = create<AuthState>()(
   devtools(
     persist(
-      (set, get) => ({
+      (set) => ({
         // Initial state
         user: null,
         isAuthenticated: false,
@@ -42,8 +42,11 @@ export const useAuthStore = create<AuthState>()(
               throw new Error('Access denied. Admin privileges required.');
             }
 
-            // Store JWT token in cookie
+            // Store the access token and refresh token in cookies
             setToken(response.token);
+            if (response.refresh_token) {
+              setRefreshToken(response.refresh_token);
+            }
 
             // Update state with user data
             set({
@@ -66,8 +69,8 @@ export const useAuthStore = create<AuthState>()(
 
         // Logout action
         logout: () => {
-          // Remove JWT token from cookie
-          removeToken();
+          // Remove the access and refresh tokens from cookies
+          clearSession();
 
           // Clear state
           set({
@@ -100,7 +103,7 @@ export const useAuthStore = create<AuthState>()(
             const errorMessage = error instanceof Error ? error.message : 'Failed to load user';
 
             // If loading user fails, clear auth state
-            removeToken();
+            clearSession();
             set({
               user: null,
               isAuthenticated: false,

@@ -4,7 +4,6 @@ import {
 	IconMapPin,
 	IconCopy,
 	IconCar,
-	IconUser,
 	IconClock,
 	IconCurrencyDollar,
 	IconStar,
@@ -46,21 +45,6 @@ export function RideDetailSheet({
 	onCancelRide,
 }: RideDetailSheetProps) {
 	if (!ride) return null;
-
-	const formatDate = (dateString: string) => {
-		return new Date(dateString).toLocaleDateString('en-US', {
-			year: 'numeric',
-			month: 'short',
-			day: 'numeric',
-		});
-	};
-
-	const formatTime = (dateString: string) => {
-		return new Date(dateString).toLocaleTimeString('en-US', {
-			hour: '2-digit',
-			minute: '2-digit',
-		});
-	};
 
 	const formatDateTime = (dateString: string) => {
 		return new Date(dateString).toLocaleString('en-US', {

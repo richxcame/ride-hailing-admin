@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
 import {
 	IconTag,
@@ -58,13 +58,7 @@ export function PromoDetailDialog({ promoId, open, onOpenChange, onUpdate }: Pro
 	const [isLoading, setIsLoading] = useState(false);
 	const [isDeactivating, setIsDeactivating] = useState(false);
 
-	useEffect(() => {
-		if (open && promoId) {
-			fetchPromoDetails();
-		}
-	}, [open, promoId]);
-
-	const fetchPromoDetails = async () => {
+	const fetchPromoDetails = useCallback(async () => {
 		if (!promoId) return;
 
 		try {
@@ -81,7 +75,13 @@ export function PromoDetailDialog({ promoId, open, onOpenChange, onUpdate }: Pro
 		} finally {
 			setIsLoading(false);
 		}
-	};
+	}, [promoId]);
+
+	useEffect(() => {
+		if (open && promoId) {
+			fetchPromoDetails();
+		}
+	}, [open, promoId, fetchPromoDetails]);
 
 	const handleDeactivate = async () => {
 		if (!promoId) return;

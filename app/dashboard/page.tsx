@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { toast } from 'sonner';
 import Link from 'next/link';
 import {
@@ -112,7 +112,7 @@ export default function DashboardPage() {
 	const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
 
 	// Fetch base dashboard stats
-	const fetchDashboardStats = async () => {
+	const fetchDashboardStats = useCallback(async () => {
 		try {
 			setIsLoadingStats(true);
 			const stats = await adminService.getDashboard();
@@ -122,10 +122,10 @@ export default function DashboardPage() {
 		} finally {
 			setIsLoadingStats(false);
 		}
-	};
+	}, []);
 
 	// Fetch realtime metrics
-	const fetchRealtimeMetrics = async () => {
+	const fetchRealtimeMetrics = useCallback(async () => {
 		try {
 			setIsLoadingRealtime(true);
 			const metrics = await adminService.getRealtimeMetrics();
@@ -137,10 +137,10 @@ export default function DashboardPage() {
 		} finally {
 			setIsLoadingRealtime(false);
 		}
-	};
+	}, []);
 
 	// Fetch dashboard summary
-	const fetchDashboardSummary = async (period?: typeof summaryPeriod) => {
+	const fetchDashboardSummary = useCallback(async (period?: typeof summaryPeriod) => {
 		try {
 			setIsLoadingSummary(true);
 			const summaryData = await adminService.getDashboardSummary({ period: period || summaryPeriod });
@@ -150,10 +150,10 @@ export default function DashboardPage() {
 		} finally {
 			setIsLoadingSummary(false);
 		}
-	};
+	}, [summaryPeriod]);
 
 	// Fetch revenue data
-	const fetchRevenueData = async (period?: typeof revenuePeriod, groupBy?: typeof revenueGroupBy) => {
+	const fetchRevenueData = useCallback(async (period?: typeof revenuePeriod, groupBy?: typeof revenueGroupBy) => {
 		try {
 			setIsLoadingRevenue(true);
 			const revenue = await adminService.getRevenueTrend({
@@ -166,10 +166,10 @@ export default function DashboardPage() {
 		} finally {
 			setIsLoadingRevenue(false);
 		}
-	};
+	}, [revenuePeriod, revenueGroupBy]);
 
 	// Fetch action items
-	const fetchActionItems = async () => {
+	const fetchActionItems = useCallback(async () => {
 		try {
 			setIsLoadingActions(true);
 			const actions = await adminService.getActionItems();
@@ -179,10 +179,10 @@ export default function DashboardPage() {
 		} finally {
 			setIsLoadingActions(false);
 		}
-	};
+	}, []);
 
 	// Fetch activity feed
-	const fetchActivityFeed = async () => {
+	const fetchActivityFeed = useCallback(async () => {
 		try {
 			setIsLoadingActivity(true);
 			const response = await adminService.getActivityFeed({ limit: 10 });
@@ -192,7 +192,7 @@ export default function DashboardPage() {
 		} finally {
 			setIsLoadingActivity(false);
 		}
-	};
+	}, []);
 
 	// Smart default: auto-select group_by based on period
 	const getDefaultGroupBy = (period: typeof revenuePeriod): typeof revenueGroupBy => {
@@ -241,7 +241,14 @@ export default function DashboardPage() {
 		}, 30000);
 
 		return () => clearInterval(interval);
-	}, []);
+	}, [
+		fetchDashboardStats,
+		fetchRealtimeMetrics,
+		fetchDashboardSummary,
+		fetchRevenueData,
+		fetchActionItems,
+		fetchActivityFeed,
+	]);
 
 	// Refresh all data
 	const handleRefresh = () => {

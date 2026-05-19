@@ -4,7 +4,6 @@ import { useEffect, useState, useCallback } from 'react';
 import { toast } from 'sonner';
 import {
 	IconRefresh,
-	IconCalendar,
 	IconAlertTriangle,
 	IconShieldCheck,
 	IconTrendingUp,
@@ -17,8 +16,6 @@ import { fraudService } from '@/lib/api/fraud.service';
 import type { FraudStatistics, FraudPattern } from '@/lib/types/models';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
