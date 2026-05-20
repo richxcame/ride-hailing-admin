@@ -1,4 +1,4 @@
-import { api, adminClient, analyticsClient } from './client';
+import { api, adminClient } from './client';
 import {
   PaginatedResponse,
   PaginationParams,
@@ -306,7 +306,7 @@ export const adminService = {
    * GET /api/v1/analytics/dashboard
    */
   getAnalyticsDashboard: async (): Promise<AnalyticsDashboard> => {
-    return api.get<AnalyticsDashboard>(analyticsClient, '/api/v1/analytics/dashboard');
+    return api.get<AnalyticsDashboard>(adminClient, '/api/v1/admin/analytics/dashboard');
   },
 
   /**
@@ -314,7 +314,7 @@ export const adminService = {
    * GET /api/v1/analytics/revenue
    */
   getAnalyticsRevenue: async (params?: { start_date?: string; end_date?: string }): Promise<RevenueAnalytics> => {
-    return api.get<RevenueAnalytics>(analyticsClient, '/api/v1/analytics/revenue', params);
+    return api.get<RevenueAnalytics>(adminClient, '/api/v1/admin/analytics/revenue', params);
   },
 
   /**
@@ -326,7 +326,7 @@ export const adminService = {
     end_date?: string;
     granularity?: 'day' | 'week' | 'month';
   }): Promise<RevenueTimeseriesData[]> => {
-    return api.get<RevenueTimeseriesData[]>(analyticsClient, '/api/v1/analytics/revenue/timeseries', params);
+    return api.get<RevenueTimeseriesData[]>(adminClient, '/api/v1/admin/analytics/revenue/timeseries', params);
   },
 
   /**
@@ -337,7 +337,7 @@ export const adminService = {
     start_date?: string;
     end_date?: string;
   }): Promise<RideTypeAnalytics[]> => {
-    const response = await api.get<{ ride_types: RideTypeAnalytics[] }>(analyticsClient, '/api/v1/analytics/ride-types', params);
+    const response = await api.get<{ ride_types: RideTypeAnalytics[] }>(adminClient, '/api/v1/admin/analytics/ride-types', params);
     return response.ride_types;
   },
 
@@ -349,7 +349,7 @@ export const adminService = {
     start_date?: string;
     end_date?: string;
   }): Promise<HourlyRideData[]> => {
-    return api.get<HourlyRideData[]>(analyticsClient, '/api/v1/analytics/rides/hourly', params);
+    return api.get<HourlyRideData[]>(adminClient, '/api/v1/admin/analytics/rides/hourly', params);
   },
 
   /**
@@ -360,7 +360,7 @@ export const adminService = {
     start_date?: string;
     end_date?: string;
   }): Promise<RidesMetrics> => {
-    return api.get<RidesMetrics>(analyticsClient, '/api/v1/analytics/rides/metrics', params);
+    return api.get<RidesMetrics>(adminClient, '/api/v1/admin/analytics/rides/metrics', params);
   },
 
   /**
@@ -371,7 +371,7 @@ export const adminService = {
     start_date?: string;
     end_date?: string;
   }): Promise<DriversPerformance> => {
-    return api.get<DriversPerformance>(analyticsClient, '/api/v1/analytics/drivers/performance', params);
+    return api.get<DriversPerformance>(adminClient, '/api/v1/admin/analytics/drivers/performance', params);
   },
 
   /**
@@ -382,7 +382,7 @@ export const adminService = {
     start_date?: string;
     end_date?: string;
   }): Promise<RidersGrowth> => {
-    return api.get<RidersGrowth>(analyticsClient, '/api/v1/analytics/riders/growth', params);
+    return api.get<RidersGrowth>(adminClient, '/api/v1/admin/analytics/riders/growth', params);
   },
 
   /**
@@ -394,7 +394,7 @@ export const adminService = {
     end_date?: string;
     limit?: number;
   }): Promise<TopDriver[]> => {
-    const response = await api.get<{ drivers: TopDriver[] }>(analyticsClient, '/api/v1/analytics/top-drivers', params);
+    const response = await api.get<{ drivers: TopDriver[] }>(adminClient, '/api/v1/admin/analytics/top-drivers', params);
     return response.drivers;
   },
 
@@ -406,7 +406,7 @@ export const adminService = {
     start_date?: string;
     end_date?: string;
   }): Promise<FinancialReport> => {
-    return api.get<FinancialReport>(analyticsClient, '/api/v1/analytics/financial-report', params);
+    return api.get<FinancialReport>(adminClient, '/api/v1/admin/analytics/financial-report', params);
   },
 
   /**
@@ -419,6 +419,6 @@ export const adminService = {
     previous_start?: string;
     previous_end?: string;
   }): Promise<AnalyticsComparison> => {
-    return api.get<AnalyticsComparison>(analyticsClient, '/api/v1/analytics/comparison', params);
+    return api.get<AnalyticsComparison>(adminClient, '/api/v1/admin/analytics/comparison', params);
   },
 };

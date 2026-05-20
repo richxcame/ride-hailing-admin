@@ -1,4 +1,4 @@
-import { api, analyticsClient } from './client';
+import { api, adminClient } from './client';
 import {
   RevenueQuery,
   DriverPerformanceQuery,
@@ -13,8 +13,8 @@ import {
 
 /**
  * Analytics Service API Client
- * Connects to Analytics Service (:8091)
- * Admin-only endpoints
+ * Talks to admin-service (port 8088 in dev), which mounts internal/analytics
+ * in-process under the /api/v1/admin/analytics group.
  */
 export const analyticsService = {
   /**
@@ -22,7 +22,7 @@ export const analyticsService = {
    * GET /api/v1/analytics/revenue
    */
   getRevenue: async (params?: RevenueQuery): Promise<RevenueMetrics> => {
-    return api.get<RevenueMetrics>(analyticsClient, '/api/v1/analytics/revenue', params);
+    return api.get<RevenueMetrics>(adminClient, '/api/v1/admin/analytics/revenue', params);
   },
 
   /**
@@ -35,7 +35,7 @@ export const analyticsService = {
     data: PromoPerformance[];
     total: number;
   }> => {
-    return api.get(analyticsClient, '/api/v1/analytics/promos/performance', params);
+    return api.get(adminClient, '/api/v1/admin/analytics/promos/performance', params);
   },
 
   /**
@@ -54,7 +54,7 @@ export const analyticsService = {
       average_distance: number;
     }>
   > => {
-    return api.get(analyticsClient, '/api/v1/analytics/ride-types/stats', params);
+    return api.get(adminClient, '/api/v1/admin/analytics/ride-types/stats', params);
   },
 
   /**
@@ -73,7 +73,7 @@ export const analyticsService = {
       referral_revenue: number;
     }>;
   }> => {
-    return api.get(analyticsClient, '/api/v1/analytics/referrals/metrics', params);
+    return api.get(adminClient, '/api/v1/admin/analytics/referrals/metrics', params);
   },
 
   /**
@@ -86,7 +86,7 @@ export const analyticsService = {
     data: DriverPerformance[];
     total: number;
   }> => {
-    return api.get(analyticsClient, '/api/v1/analytics/drivers/performance', params);
+    return api.get(adminClient, '/api/v1/admin/analytics/drivers/performance', params);
   },
 
   /**
@@ -106,7 +106,7 @@ export const analyticsService = {
       average_surge: number;
     }>
   > => {
-    return api.get(analyticsClient, '/api/v1/analytics/demand/patterns', params);
+    return api.get(adminClient, '/api/v1/admin/analytics/demand/patterns', params);
   },
 
   /**
@@ -122,7 +122,7 @@ export const analyticsService = {
     retention_rate: number;
     churn_rate: number;
   }> => {
-    return api.get(analyticsClient, '/api/v1/analytics/retention', params);
+    return api.get(adminClient, '/api/v1/admin/analytics/retention', params);
   },
 
   /**
@@ -134,7 +134,7 @@ export const analyticsService = {
       report_type: 'revenue' | 'rides' | 'drivers' | 'promos';
     }
   ): Promise<Blob> => {
-    const response = await analyticsClient.get('/api/v1/analytics/export', {
+    const response = await adminClient.get('/api/v1/admin/analytics/export', {
       params,
       responseType: 'blob',
     });

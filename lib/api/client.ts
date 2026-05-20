@@ -11,8 +11,12 @@ import { ApiError, ApiResponse } from '@/lib/types/api';
 const JWT_COOKIE_NAME = process.env.NEXT_PUBLIC_JWT_COOKIE_NAME || 'admin_token';
 const REFRESH_COOKIE_NAME =
   process.env.NEXT_PUBLIC_REFRESH_COOKIE_NAME || 'admin_refresh_token';
-const AUTH_BASE_URL =
-  process.env.NEXT_PUBLIC_AUTH_API_BASE_URL || 'http://localhost:8081';
+// The admin panel talks to a single BFF — admin-service — which mounts every
+// other domain handler (auth, analytics, fraud, promos, notifications, …) in
+// process. There is no separate gateway: the k8s Ingress routes /admin/* and
+// /api/v1/* to admin-service in staging/prod; in dev this is just port 8088.
+const ADMIN_BASE_URL =
+  process.env.NEXT_PUBLIC_ADMIN_API_BASE_URL || 'http://localhost:8088';
 
 export const getToken = (): string | undefined => {
   return Cookies.get(JWT_COOKIE_NAME);
@@ -88,7 +92,7 @@ const performTokenRefresh = async (): Promise<string> => {
   // Raw axios call so this request bypasses the interceptors below and cannot
   // recurse back into the refresh logic.
   const res = await axios.post(
-    `${AUTH_BASE_URL}/api/v1/auth/refresh`,
+    `${ADMIN_BASE_URL}/api/v1/auth/refresh`,
     { refresh_token: refreshToken },
     { headers: { 'Content-Type': 'application/json' } }
   );
@@ -199,32 +203,8 @@ const createApiClient = (baseURL: string): AxiosInstance => {
   return client;
 };
 
-// API client instances for each service
-export const authClient = createApiClient(AUTH_BASE_URL);
-
-export const adminClient = createApiClient(
-  process.env.NEXT_PUBLIC_ADMIN_API_BASE_URL || 'http://localhost:8088'
-);
-
-export const analyticsClient = createApiClient(
-  process.env.NEXT_PUBLIC_ANALYTICS_API_BASE_URL || 'http://localhost:8091'
-);
-
-export const fraudClient = createApiClient(
-  process.env.NEXT_PUBLIC_FRAUD_API_BASE_URL || 'http://localhost:8092'
-);
-
-export const promosClient = createApiClient(
-  process.env.NEXT_PUBLIC_PROMOS_API_BASE_URL || 'http://localhost:8089'
-);
-
-export const notifsClient = createApiClient(
-  process.env.NEXT_PUBLIC_NOTIFS_API_BASE_URL || 'http://localhost:8085'
-);
-
-export const mlEtaClient = createApiClient(
-  process.env.NEXT_PUBLIC_ML_ETA_API_BASE_URL || 'http://localhost:8093'
-);
+// The single API client — admin-service is the BFF for the entire admin panel.
+export const adminClient = createApiClient(ADMIN_BASE_URL);
 
 // Generic request wrapper with type safety
 export async function apiRequest<T>(

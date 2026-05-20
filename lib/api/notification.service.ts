@@ -1,4 +1,4 @@
-import { api, notifsClient } from './client';
+import { api, adminClient } from './client';
 import { PaginatedResponse, PaginationParams } from '@/lib/types/api';
 import {
 	NotificationCampaign,
@@ -11,8 +11,8 @@ import {
 
 /**
  * Notification Service API Client
- * Connects to Notifications Service (:8085)
- * Handles campaigns, templates, and notification logs
+ * Talks to admin-service (port 8088 in dev), which mounts internal/notifications
+ * in-process under the /api/v1/admin/notifications group.
  */
 export const notificationService = {
 	// ==================== Campaigns ====================
@@ -28,7 +28,7 @@ export const notificationService = {
 		}
 	): Promise<PaginatedResponse<NotificationCampaign>> => {
 		return api.get<PaginatedResponse<NotificationCampaign>>(
-			notifsClient,
+			adminClient,
 			'/api/v1/admin/notifications/campaigns',
 			params
 		);
@@ -39,7 +39,7 @@ export const notificationService = {
 	 * GET /api/v1/admin/notifications/campaigns/:id
 	 */
 	getCampaign: async (campaignId: string): Promise<NotificationCampaign> => {
-		return api.get<NotificationCampaign>(notifsClient, `/api/v1/admin/notifications/campaigns/${campaignId}`);
+		return api.get<NotificationCampaign>(adminClient, `/api/v1/admin/notifications/campaigns/${campaignId}`);
 	},
 
 	/**
@@ -47,7 +47,7 @@ export const notificationService = {
 	 * POST /api/v1/admin/notifications/campaigns
 	 */
 	createCampaign: async (data: CreateCampaignRequest): Promise<NotificationCampaign> => {
-		return api.post<NotificationCampaign>(notifsClient, '/api/v1/admin/notifications/campaigns', data);
+		return api.post<NotificationCampaign>(adminClient, '/api/v1/admin/notifications/campaigns', data);
 	},
 
 	/**
@@ -55,7 +55,7 @@ export const notificationService = {
 	 * PUT /api/v1/admin/notifications/campaigns/:id
 	 */
 	updateCampaign: async (campaignId: string, data: UpdateCampaignRequest): Promise<NotificationCampaign> => {
-		return api.put<NotificationCampaign>(notifsClient, `/api/v1/admin/notifications/campaigns/${campaignId}`, data);
+		return api.put<NotificationCampaign>(adminClient, `/api/v1/admin/notifications/campaigns/${campaignId}`, data);
 	},
 
 	/**
@@ -63,7 +63,7 @@ export const notificationService = {
 	 * POST /api/v1/admin/notifications/campaigns/:id/send
 	 */
 	sendCampaign: async (campaignId: string): Promise<NotificationCampaign> => {
-		return api.post<NotificationCampaign>(notifsClient, `/api/v1/admin/notifications/campaigns/${campaignId}/send`);
+		return api.post<NotificationCampaign>(adminClient, `/api/v1/admin/notifications/campaigns/${campaignId}/send`);
 	},
 
 	/**
@@ -71,7 +71,7 @@ export const notificationService = {
 	 * POST /api/v1/admin/notifications/campaigns/:id/cancel
 	 */
 	cancelCampaign: async (campaignId: string): Promise<NotificationCampaign> => {
-		return api.post<NotificationCampaign>(notifsClient, `/api/v1/admin/notifications/campaigns/${campaignId}/cancel`);
+		return api.post<NotificationCampaign>(adminClient, `/api/v1/admin/notifications/campaigns/${campaignId}/cancel`);
 	},
 
 	/**
@@ -79,7 +79,7 @@ export const notificationService = {
 	 * DELETE /api/v1/admin/notifications/campaigns/:id
 	 */
 	deleteCampaign: async (campaignId: string): Promise<void> => {
-		return api.delete<void>(notifsClient, `/api/v1/admin/notifications/campaigns/${campaignId}`);
+		return api.delete<void>(adminClient, `/api/v1/admin/notifications/campaigns/${campaignId}`);
 	},
 
 	// ==================== Direct Notifications ====================
@@ -89,7 +89,7 @@ export const notificationService = {
 	 * POST /api/v1/admin/notifications/send
 	 */
 	sendNotification: async (data: SendNotificationRequest): Promise<NotificationLog> => {
-		return api.post<NotificationLog>(notifsClient, '/api/v1/admin/notifications/send', data);
+		return api.post<NotificationLog>(adminClient, '/api/v1/admin/notifications/send', data);
 	},
 
 	// ==================== Notification Logs ====================
@@ -106,7 +106,7 @@ export const notificationService = {
 			campaign_id?: string;
 		}
 	): Promise<PaginatedResponse<NotificationLog>> => {
-		return api.get<PaginatedResponse<NotificationLog>>(notifsClient, '/api/v1/admin/notifications/logs', params);
+		return api.get<PaginatedResponse<NotificationLog>>(adminClient, '/api/v1/admin/notifications/logs', params);
 	},
 
 	// ==================== Templates ====================
@@ -117,7 +117,7 @@ export const notificationService = {
 	 */
 	getTemplates: async (params?: PaginationParams): Promise<PaginatedResponse<NotificationTemplate>> => {
 		return api.get<PaginatedResponse<NotificationTemplate>>(
-			notifsClient,
+			adminClient,
 			'/api/v1/admin/notifications/templates',
 			params
 		);
@@ -128,7 +128,7 @@ export const notificationService = {
 	 * POST /api/v1/admin/notifications/templates
 	 */
 	createTemplate: async (data: Omit<NotificationTemplate, 'id' | 'created_at' | 'updated_at'>): Promise<NotificationTemplate> => {
-		return api.post<NotificationTemplate>(notifsClient, '/api/v1/admin/notifications/templates', data);
+		return api.post<NotificationTemplate>(adminClient, '/api/v1/admin/notifications/templates', data);
 	},
 
 	/**
@@ -139,7 +139,7 @@ export const notificationService = {
 		templateId: string,
 		data: Partial<Omit<NotificationTemplate, 'id' | 'created_at' | 'updated_at'>>
 	): Promise<NotificationTemplate> => {
-		return api.put<NotificationTemplate>(notifsClient, `/api/v1/admin/notifications/templates/${templateId}`, data);
+		return api.put<NotificationTemplate>(adminClient, `/api/v1/admin/notifications/templates/${templateId}`, data);
 	},
 
 	/**
@@ -147,6 +147,6 @@ export const notificationService = {
 	 * DELETE /api/v1/admin/notifications/templates/:id
 	 */
 	deleteTemplate: async (templateId: string): Promise<void> => {
-		return api.delete<void>(notifsClient, `/api/v1/admin/notifications/templates/${templateId}`);
+		return api.delete<void>(adminClient, `/api/v1/admin/notifications/templates/${templateId}`);
 	},
 };

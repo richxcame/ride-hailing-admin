@@ -1,13 +1,14 @@
-import { api, authClient } from './client';
+import { api, adminClient } from './client';
 import { LoginRequest, AuthResponse } from '@/lib/types/api';
 import { User } from '@/lib/types/models';
 
 /**
  * Auth Service API Client
- * Connects to Auth Service (:8081)
  *
- * Note: the auth service is phone-OTP-first for riders/drivers. Admin/staff
- * accounts authenticate via the dedicated email + password endpoint below.
+ * The auth handler is mounted on admin-service in-process; the standalone
+ * cmd/auth service exists for a possible future split but isn't deployed.
+ * For riders/drivers auth is phone-OTP-first — admin/staff use the dedicated
+ * email + password endpoint below.
  */
 export const authService = {
   /**
@@ -15,7 +16,7 @@ export const authService = {
    * POST /api/v1/auth/admin/login
    */
   login: async (credentials: LoginRequest): Promise<AuthResponse> => {
-    return api.post<AuthResponse>(authClient, '/api/v1/auth/admin/login', credentials);
+    return api.post<AuthResponse>(adminClient, '/api/v1/auth/admin/login', credentials);
   },
 
   /**
@@ -24,7 +25,7 @@ export const authService = {
    * Requires authentication
    */
   getProfile: async (): Promise<User> => {
-    return api.get<User>(authClient, '/api/v1/auth/profile');
+    return api.get<User>(adminClient, '/api/v1/auth/profile');
   },
 
   /**
@@ -33,6 +34,6 @@ export const authService = {
    * Requires authentication
    */
   updateProfile: async (data: Partial<User>): Promise<User> => {
-    return api.put<User>(authClient, '/api/v1/auth/profile', data);
+    return api.put<User>(adminClient, '/api/v1/auth/profile', data);
   },
 };

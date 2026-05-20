@@ -1,4 +1,6 @@
-import { api, fraudClient } from './client';
+import { api, adminClient } from './client';
+// Fraud handlers are mounted on admin-service in-process; the standalone
+// cmd/fraud service is not deployed.
 import { PaginatedResponse, PaginationParams } from '@/lib/types/api';
 import {
   FraudAlert,
@@ -24,7 +26,7 @@ export const fraudService = {
       alert_type?: string;
     }
   ): Promise<PaginatedResponse<FraudAlert>> => {
-    return api.get<PaginatedResponse<FraudAlert>>(fraudClient, '/api/v1/fraud/alerts', params);
+    return api.get<PaginatedResponse<FraudAlert>>(adminClient, '/api/v1/admin/fraud/alerts', params);
   },
 
   /**
@@ -32,7 +34,7 @@ export const fraudService = {
    * GET /api/v1/fraud/alerts/:id
    */
   getAlert: async (alertId: string): Promise<FraudAlert> => {
-    return api.get<FraudAlert>(fraudClient, `/api/v1/fraud/alerts/${alertId}`);
+    return api.get<FraudAlert>(adminClient, `/api/v1/admin/fraud/alerts/${alertId}`);
   },
 
   /**
@@ -46,7 +48,7 @@ export const fraudService = {
     description: string;
     details?: Record<string, unknown>;
   }): Promise<FraudAlert> => {
-    return api.post<FraudAlert>(fraudClient, '/api/v1/fraud/alerts', data);
+    return api.post<FraudAlert>(adminClient, '/api/v1/admin/fraud/alerts', data);
   },
 
   /**
@@ -57,7 +59,7 @@ export const fraudService = {
     alertId: string,
     data?: { notes?: string }
   ): Promise<FraudAlert> => {
-    return api.put<FraudAlert>(fraudClient, `/api/v1/fraud/alerts/${alertId}/investigate`, data);
+    return api.put<FraudAlert>(adminClient, `/api/v1/admin/fraud/alerts/${alertId}/investigate`, data);
   },
 
   /**
@@ -72,7 +74,7 @@ export const fraudService = {
       notes?: string;
     }
   ): Promise<FraudAlert> => {
-    return api.put<FraudAlert>(fraudClient, `/api/v1/fraud/alerts/${alertId}/resolve`, data);
+    return api.put<FraudAlert>(adminClient, `/api/v1/admin/fraud/alerts/${alertId}/resolve`, data);
   },
 
   /**
@@ -84,8 +86,8 @@ export const fraudService = {
     params?: PaginationParams
   ): Promise<PaginatedResponse<FraudAlert>> => {
     return api.get<PaginatedResponse<FraudAlert>>(
-      fraudClient,
-      `/api/v1/fraud/users/${userId}/alerts`,
+      adminClient,
+      `/api/v1/admin/fraud/users/${userId}/alerts`,
       params
     );
   },
@@ -95,7 +97,7 @@ export const fraudService = {
    * GET /api/v1/fraud/users/:user_id/risk-profile
    */
   getUserRiskProfile: async (userId: string): Promise<UserRiskProfile> => {
-    return api.get<UserRiskProfile>(fraudClient, `/api/v1/fraud/users/${userId}/risk-profile`);
+    return api.get<UserRiskProfile>(adminClient, `/api/v1/admin/fraud/users/${userId}/risk-profile`);
   },
 
   /**
@@ -116,7 +118,7 @@ export const fraudService = {
       alert_created: boolean;
     };
   }> => {
-    return api.post(fraudClient, `/api/v1/fraud/users/${userId}/analyze`);
+    return api.post(adminClient, `/api/v1/admin/fraud/users/${userId}/analyze`);
   },
 
   /**
@@ -130,7 +132,7 @@ export const fraudService = {
       alert_id?: string;
     }
   ): Promise<{ message: string; suspended: boolean }> => {
-    return api.post(fraudClient, `/api/v1/fraud/users/${userId}/suspend`, data);
+    return api.post(adminClient, `/api/v1/admin/fraud/users/${userId}/suspend`, data);
   },
 
   /**
@@ -141,7 +143,7 @@ export const fraudService = {
     userId: string,
     data?: { notes?: string }
   ): Promise<{ message: string; reinstated: boolean }> => {
-    return api.post(fraudClient, `/api/v1/fraud/users/${userId}/reinstate`, data);
+    return api.post(adminClient, `/api/v1/admin/fraud/users/${userId}/reinstate`, data);
   },
 
   /**
@@ -155,7 +157,7 @@ export const fraudService = {
     alert_created: boolean;
     alert_id?: string;
   }> => {
-    return api.post(fraudClient, `/api/v1/fraud/detect/payment/${userId}`);
+    return api.post(adminClient, `/api/v1/admin/fraud/detect/payment/${userId}`);
   },
 
   /**
@@ -169,7 +171,7 @@ export const fraudService = {
     alert_created: boolean;
     alert_id?: string;
   }> => {
-    return api.post(fraudClient, `/api/v1/fraud/detect/ride/${userId}`);
+    return api.post(adminClient, `/api/v1/admin/fraud/detect/ride/${userId}`);
   },
 
   /**
@@ -183,7 +185,7 @@ export const fraudService = {
     alert_created: boolean;
     alert_id?: string;
   }> => {
-    return api.post(fraudClient, `/api/v1/fraud/detect/account/${userId}`);
+    return api.post(adminClient, `/api/v1/admin/fraud/detect/account/${userId}`);
   },
 
   /**
@@ -194,7 +196,7 @@ export const fraudService = {
     start_date?: string;
     end_date?: string;
   }): Promise<FraudStatistics> => {
-    return api.get<FraudStatistics>(fraudClient, '/api/v1/fraud/statistics', params);
+    return api.get<FraudStatistics>(adminClient, '/api/v1/admin/fraud/statistics', params);
   },
 
   /**
@@ -202,6 +204,6 @@ export const fraudService = {
    * GET /api/v1/fraud/patterns
    */
   getPatterns: async (params?: { limit?: number }): Promise<FraudPattern[]> => {
-    return api.get<FraudPattern[]>(fraudClient, '/api/v1/fraud/patterns', params);
+    return api.get<FraudPattern[]>(adminClient, '/api/v1/admin/fraud/patterns', params);
   },
 };
