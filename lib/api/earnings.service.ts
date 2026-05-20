@@ -59,7 +59,7 @@ export const earningsService = {
 
 	/**
 	 * List all payouts
-	 * GET /api/v1/admin/payouts
+	 * GET /api/v1/admin/earnings/payouts
 	 */
 	getPayouts: async (
 		params?: PaginationParams & {
@@ -69,60 +69,60 @@ export const earningsService = {
 			search?: string;
 		}
 	): Promise<PaginatedResponse<Payout>> => {
-		return api.get<PaginatedResponse<Payout>>(adminClient, '/api/v1/admin/payouts', params);
+		return api.get<PaginatedResponse<Payout>>(adminClient, '/api/v1/admin/earnings/payouts', params);
 	},
 
 	/**
 	 * Get payout by ID
-	 * GET /api/v1/admin/payouts/:id
+	 * GET /api/v1/admin/earnings/payouts/:id
 	 */
 	getPayout: async (payoutId: string): Promise<Payout> => {
-		return api.get<Payout>(adminClient, `/api/v1/admin/payouts/${payoutId}`);
+		return api.get<Payout>(adminClient, `/api/v1/admin/earnings/payouts/${payoutId}`);
 	},
 
 	/**
 	 * Create a payout request
-	 * POST /api/v1/admin/payouts
+	 * POST /api/v1/admin/earnings/payouts
 	 */
 	createPayout: async (data: CreatePayoutRequest): Promise<Payout> => {
-		return api.post<Payout>(adminClient, '/api/v1/admin/payouts', data);
+		return api.post<Payout>(adminClient, '/api/v1/admin/earnings/payouts', data);
 	},
 
 	/**
 	 * Process a pending payout
-	 * POST /api/v1/admin/payouts/:id/process
+	 * POST /api/v1/admin/earnings/payouts/:id/process
 	 */
 	processPayout: async (payoutId: string, data?: ProcessPayoutRequest): Promise<Payout> => {
-		return api.post<Payout>(adminClient, `/api/v1/admin/payouts/${payoutId}/process`, data);
+		return api.post<Payout>(adminClient, `/api/v1/admin/earnings/payouts/${payoutId}/process`, data);
 	},
 
 	/**
 	 * Mark payout as completed
-	 * POST /api/v1/admin/payouts/:id/complete
+	 * POST /api/v1/admin/earnings/payouts/:id/complete
 	 */
 	completePayout: async (payoutId: string, data?: { reference?: string }): Promise<Payout> => {
-		return api.post<Payout>(adminClient, `/api/v1/admin/payouts/${payoutId}/complete`, data);
+		return api.post<Payout>(adminClient, `/api/v1/admin/earnings/payouts/${payoutId}/complete`, data);
 	},
 
 	/**
 	 * Mark payout as failed
-	 * POST /api/v1/admin/payouts/:id/fail
+	 * POST /api/v1/admin/earnings/payouts/:id/fail
 	 */
 	failPayout: async (payoutId: string, data: { reason: string }): Promise<Payout> => {
-		return api.post<Payout>(adminClient, `/api/v1/admin/payouts/${payoutId}/fail`, data);
+		return api.post<Payout>(adminClient, `/api/v1/admin/earnings/payouts/${payoutId}/fail`, data);
 	},
 
 	/**
 	 * Put payout on hold
-	 * POST /api/v1/admin/payouts/:id/hold
+	 * POST /api/v1/admin/earnings/payouts/:id/hold
 	 */
 	holdPayout: async (payoutId: string, data?: { notes?: string }): Promise<Payout> => {
-		return api.post<Payout>(adminClient, `/api/v1/admin/payouts/${payoutId}/hold`, data);
+		return api.post<Payout>(adminClient, `/api/v1/admin/earnings/payouts/${payoutId}/hold`, data);
 	},
 
 	/**
 	 * Process bulk payouts
-	 * POST /api/v1/admin/payouts/bulk
+	 * POST /api/v1/admin/earnings/payouts/bulk
 	 */
 	bulkPayout: async (data: BulkPayoutRequest): Promise<{
 		total: number;
@@ -130,7 +130,7 @@ export const earningsService = {
 		failed: number;
 		payouts: Payout[];
 	}> => {
-		return api.post(adminClient, '/api/v1/admin/payouts/bulk', data);
+		return api.post(adminClient, '/api/v1/admin/earnings/payouts/bulk', data);
 	},
 
 	// ==================== Statistics ====================

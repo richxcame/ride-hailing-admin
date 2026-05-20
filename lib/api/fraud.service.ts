@@ -39,13 +39,17 @@ export const fraudService = {
 
   /**
    * Create a new fraud alert (admin)
-   * POST /api/v1/fraud/alerts
+   * POST /api/v1/admin/fraud/alerts
+   *
+   * `risk_score` (0-100) is required by the backend's CreateAlertRequest;
+   * omitting it returns 400.
    */
   createAlert: async (data: {
     user_id: string;
     alert_type: string;
     alert_level: string;
     description: string;
+    risk_score: number;
     details?: Record<string, unknown>;
   }): Promise<FraudAlert> => {
     return api.post<FraudAlert>(adminClient, '/api/v1/admin/fraud/alerts', data);
@@ -64,12 +68,16 @@ export const fraudService = {
 
   /**
    * Resolve a fraud alert
-   * PUT /api/v1/fraud/alerts/:id/resolve
+   * PUT /api/v1/admin/fraud/alerts/:id/resolve
+   *
+   * Backend's ResolveAlertRequest expects { confirmed: boolean, notes, action_taken }.
+   * Previously sent `status: 'confirmed' | 'false_positive'`, which the backend
+   * could not read and silently resolved every alert as not-confirmed.
    */
   resolveAlert: async (
     alertId: string,
     data: {
-      status: 'confirmed' | 'false_positive';
+      confirmed: boolean;
       action_taken?: string;
       notes?: string;
     }

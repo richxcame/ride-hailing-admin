@@ -27,20 +27,24 @@ export const analyticsService = {
 
   /**
    * Get promo code performance metrics
-   * GET /api/v1/analytics/promos/performance
+   * GET /api/v1/admin/analytics/promos
+   * Backend returns `{ promo_codes: PromoPerformance[] }`.
    */
   getPromoPerformance: async (
     params?: DateRangeFilter & PaginationParams
-  ): Promise<{
-    data: PromoPerformance[];
-    total: number;
-  }> => {
-    return api.get(adminClient, '/api/v1/admin/analytics/promos/performance', params);
+  ): Promise<PromoPerformance[]> => {
+    const response = await api.get<{ promo_codes: PromoPerformance[] }>(
+      adminClient,
+      '/api/v1/admin/analytics/promos',
+      params
+    );
+    return response.promo_codes;
   },
 
   /**
    * Get ride type statistics
-   * GET /api/v1/analytics/ride-types/stats
+   * GET /api/v1/admin/analytics/ride-types
+   * Backend returns `{ ride_types: RideTypeStat[] }`.
    */
   getRideTypeStats: async (
     params?: DateRangeFilter
@@ -54,12 +58,22 @@ export const analyticsService = {
       average_distance: number;
     }>
   > => {
-    return api.get(adminClient, '/api/v1/admin/analytics/ride-types/stats', params);
+    const response = await api.get<{
+      ride_types: Array<{
+        ride_type_id: string;
+        ride_type_name: string;
+        total_rides: number;
+        total_revenue: number;
+        average_fare: number;
+        average_distance: number;
+      }>;
+    }>(adminClient, '/api/v1/admin/analytics/ride-types', params);
+    return response.ride_types;
   },
 
   /**
    * Get referral program metrics
-   * GET /api/v1/analytics/referrals/metrics
+   * GET /api/v1/admin/analytics/referrals
    */
   getReferralMetrics: async (
     params?: DateRangeFilter
@@ -73,20 +87,23 @@ export const analyticsService = {
       referral_revenue: number;
     }>;
   }> => {
-    return api.get(adminClient, '/api/v1/admin/analytics/referrals/metrics', params);
+    return api.get(adminClient, '/api/v1/admin/analytics/referrals', params);
   },
 
   /**
    * Get driver performance metrics
-   * GET /api/v1/analytics/drivers/performance
+   * GET /api/v1/admin/analytics/drivers
+   * Backend returns `{ data: DriverPerformance[] }` — no total.
    */
   getDriverPerformance: async (
     params?: DriverPerformanceQuery
-  ): Promise<{
-    data: DriverPerformance[];
-    total: number;
-  }> => {
-    return api.get(adminClient, '/api/v1/admin/analytics/drivers/performance', params);
+  ): Promise<DriverPerformance[]> => {
+    const response = await api.get<{ data: DriverPerformance[] }>(
+      adminClient,
+      '/api/v1/admin/analytics/drivers',
+      params
+    );
+    return response.data;
   },
 
   /**

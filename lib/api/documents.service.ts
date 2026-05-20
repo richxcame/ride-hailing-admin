@@ -67,7 +67,7 @@ export const documentsService = {
 
 	/**
 	 * Get documents for a specific driver
-	 * GET /api/v1/admin/drivers/:driverId/documents
+	 * GET /api/v1/admin/documents/drivers/:driverId
 	 */
 	getDriverDocuments: async (
 		driverId: string,
@@ -75,7 +75,7 @@ export const documentsService = {
 	): Promise<PaginatedResponse<DriverDocument>> => {
 		return api.get<PaginatedResponse<DriverDocument>>(
 			adminClient,
-			`/api/v1/admin/drivers/${driverId}/documents`,
+			`/api/v1/admin/documents/drivers/${driverId}`,
 			params
 		);
 	},

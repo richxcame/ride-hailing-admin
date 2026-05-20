@@ -288,7 +288,7 @@ export default function FraudAlertsPage() {
 	) => {
 		try {
 			await fraudService.resolveAlert(alertId, {
-				status,
+				confirmed: status === 'confirmed',
 				action_taken: actionTaken,
 				notes,
 			});
