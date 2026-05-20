@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import {
 	IconX,
@@ -56,33 +56,35 @@ export function PromoDetailSheet({ promoId, open, onOpenChange, onUpdate }: Prom
 			used_at: string;
 		}>;
 	} | null>(null);
-	const [isLoading, setIsLoading] = useState(false);
 	const [isDeactivating, setIsDeactivating] = useState(false);
-
-	const fetchPromoDetails = useCallback(async () => {
-		if (!promoId) return;
-
-		try {
-			setIsLoading(true);
-			const [promoData, statsData] = await Promise.all([
-				promoService.getPromoCode(promoId),
-				promoService.getPromoCodeUsageStats(promoId),
-			]);
-			setPromo(promoData);
-			setStats(statsData);
-		} catch (error) {
-			const errorMessage = error instanceof Error ? error.message : 'Failed to load promo details';
-			toast.error('Failed to load promo details', { description: errorMessage });
-		} finally {
-			setIsLoading(false);
-		}
-	}, [promoId]);
+	// See promo-detail-dialog.tsx — loading is derived from "the open id
+	// doesn't yet match the id we last finished loading."
+	const [loadedPromoId, setLoadedPromoId] = useState<string | null>(null);
+	const isLoading = !!promoId && open && loadedPromoId !== promoId;
 
 	useEffect(() => {
-		if (open && promoId) {
-			fetchPromoDetails();
-		}
-	}, [open, promoId, fetchPromoDetails]);
+		if (!open || !promoId) return;
+		let active = true;
+		(async () => {
+			try {
+				const [promoData, statsData] = await Promise.all([
+					promoService.getPromoCode(promoId),
+					promoService.getPromoCodeUsageStats(promoId),
+				]);
+				if (!active) return;
+				setPromo(promoData);
+				setStats(statsData);
+				setLoadedPromoId(promoId);
+			} catch (error) {
+				if (!active) return;
+				const errorMessage = error instanceof Error ? error.message : 'Failed to load promo details';
+				toast.error('Failed to load promo details', { description: errorMessage });
+			}
+		})();
+		return () => {
+			active = false;
+		};
+	}, [open, promoId]);
 
 	const handleDeactivate = async () => {
 		if (!promoId) return;
@@ -109,7 +111,9 @@ export function PromoDetailSheet({ promoId, open, onOpenChange, onUpdate }: Prom
 	};
 
 	const handleUpdate = () => {
-		fetchPromoDetails();
+		// Force a re-fetch by clearing the loaded marker; the effect will run
+		// again because isLoading derivation flips back to true.
+		setLoadedPromoId(null);
 		onUpdate?.();
 	};
 

@@ -38,28 +38,38 @@ export default function PromosPage() {
 	const [selectedPromoId, setSelectedPromoId] = useState<string | null>(null);
 	const [isSheetOpen, setIsSheetOpen] = useState(false);
 
-	const fetchData = async () => {
-		try {
-			setIsLoading(true);
-			const [rideTypesData, promoCodesData, referralCodesData] = await Promise.all([
-				promoService.getRideTypes(),
-				promoService.getAllPromoCodes({ limit: 100, offset: 0 }),
-				promoService.getAllReferralCodes({ limit: 100, offset: 0 }),
-			]);
-			setRideTypes(rideTypesData || []);
-			setPromoCodes(promoCodesData?.data || []);
-			setReferralCodes(referralCodesData?.data || []);
-		} catch (error) {
-			const errorMessage = error instanceof Error ? error.message : 'Failed to load data';
-			toast.error('Failed to load promos data', { description: errorMessage });
-		} finally {
-			setIsLoading(false);
-		}
-	};
+	const [refreshTick, setRefreshTick] = useState(0);
 
 	useEffect(() => {
-		fetchData();
-	}, []);
+		let active = true;
+		(async () => {
+			try {
+				const [rideTypesData, promoCodesData, referralCodesData] = await Promise.all([
+					promoService.getRideTypes(),
+					promoService.getAllPromoCodes({ limit: 100, offset: 0 }),
+					promoService.getAllReferralCodes({ limit: 100, offset: 0 }),
+				]);
+				if (!active) return;
+				setRideTypes(rideTypesData || []);
+				setPromoCodes(promoCodesData?.data || []);
+				setReferralCodes(referralCodesData?.data || []);
+			} catch (error) {
+				if (!active) return;
+				const errorMessage = error instanceof Error ? error.message : 'Failed to load data';
+				toast.error('Failed to load promos data', { description: errorMessage });
+			} finally {
+				if (active) setIsLoading(false);
+			}
+		})();
+		return () => {
+			active = false;
+		};
+	}, [refreshTick]);
+
+	const fetchData = () => {
+		setIsLoading(true);
+		setRefreshTick((t) => t + 1);
+	};
 
 	const formatCurrency = (value: number) => {
 		return new Intl.NumberFormat('en-US', {

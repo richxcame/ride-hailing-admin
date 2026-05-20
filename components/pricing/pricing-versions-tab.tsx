@@ -59,22 +59,31 @@ export function PricingVersionsTab({ onRefresh }: PricingVersionsTabProps) {
 		effective_until: '',
 	});
 
-	const fetchVersions = useCallback(async () => {
-		try {
-			setIsLoading(true);
-			const response = await pricingService.getVersions({ limit: 100 });
-			setVersions(response.data);
-		} catch (error) {
-			const msg = error instanceof Error ? error.message : 'Failed to load versions';
-			toast.error('Failed to load versions', { description: msg });
-		} finally {
-			setIsLoading(false);
-		}
-	}, []);
+	const [refreshTick, setRefreshTick] = useState(0);
 
 	useEffect(() => {
-		fetchVersions();
-	}, [fetchVersions]);
+		let active = true;
+		(async () => {
+			try {
+				const response = await pricingService.getVersions({ limit: 100 });
+				if (active) setVersions(response.data);
+			} catch (error) {
+				if (!active) return;
+				const msg = error instanceof Error ? error.message : 'Failed to load versions';
+				toast.error('Failed to load versions', { description: msg });
+			} finally {
+				if (active) setIsLoading(false);
+			}
+		})();
+		return () => {
+			active = false;
+		};
+	}, [refreshTick]);
+
+	const fetchVersions = useCallback(() => {
+		setIsLoading(true);
+		setRefreshTick((t) => t + 1);
+	}, []);
 
 	const handleInputChange = (field: string, value: string) => {
 		setFormData((prev) => ({ ...prev, [field]: value }));

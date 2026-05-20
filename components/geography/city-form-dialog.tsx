@@ -41,6 +41,10 @@ export function CityFormDialog({
 		is_active: initialData?.is_active ?? true,
 	});
 
+	// Reset form state to initialData when the dialog opens. See
+	// https://react.dev/learn/you-might-not-need-an-effect — the canonical
+	// fix would key an inner form component; we keep the dialog flat here.
+	/* eslint-disable react-hooks/set-state-in-effect */
 	useEffect(() => {
 		if (open) {
 			setFormData({
@@ -51,6 +55,7 @@ export function CityFormDialog({
 			});
 		}
 	}, [open, initialData]);
+	/* eslint-enable react-hooks/set-state-in-effect */
 
 	const handleInputChange = (field: string, value: string | boolean) => {
 		setFormData((prev) => ({ ...prev, [field]: value }));

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import Link from 'next/link';
@@ -172,42 +172,51 @@ export default function VehicleDetailPage() {
 	const [suspendReason, setSuspendReason] = useState('');
 	const [isSubmittingSuspend, setIsSubmittingSuspend] = useState(false);
 
-	const fetchVehicle = async () => {
-		try {
-			setIsLoading(true);
-			// Fetch via the all-vehicles list filtered by a single vehicle isn't directly available,
-			// so we get the list and find by id, or use getAll with search.
-			// Since there's no single GET /admin/vehicles/:id endpoint, use the all list with
-			// the exact driver's vehicle. We'll fetch all and find our vehicle.
-			const res = await vehiclesService.getAll({ limit: 1, offset: 0, search: vehicleId });
-			// If backend search doesn't match UUIDs, fall back to fetching list
-			// and letting the page handle not-found gracefully.
-			if (res.data.length > 0 && res.data[0].id === vehicleId) {
-				setVehicle(res.data[0]);
-			} else {
-				// Try fetching without filter and scan through pending list
-				const pending = await vehiclesService.getPending({ limit: 50, offset: 0 });
-				const found = pending.data.find(v => v.id === vehicleId);
-				if (found) {
-					setVehicle(found);
-				} else {
-					// Try all vehicles
-					const all = await vehiclesService.getAll({ limit: 100, offset: 0 });
-					const foundAll = all.data.find(v => v.id === vehicleId);
-					setVehicle(foundAll ?? null);
-					if (!foundAll) toast.error('Vehicle not found');
-				}
-			}
-		} catch (error) {
-			toast.error('Failed to load vehicle', { description: error instanceof Error ? error.message : undefined });
-		} finally {
-			setIsLoading(false);
-		}
-	};
+	const [refreshTick, setRefreshTick] = useState(0);
 
 	useEffect(() => {
-		fetchVehicle();
-	}, [vehicleId]); // eslint-disable-line
+		let active = true;
+		(async () => {
+			try {
+				// There's no single GET /admin/vehicles/:id endpoint, so search the
+				// list endpoints and find the vehicle by id.
+				const res = await vehiclesService.getAll({ limit: 1, offset: 0, search: vehicleId });
+				if (!active) return;
+				if (res.data.length > 0 && res.data[0].id === vehicleId) {
+					setVehicle(res.data[0]);
+					return;
+				}
+				const pending = await vehiclesService.getPending({ limit: 50, offset: 0 });
+				if (!active) return;
+				const found = pending.data.find((v) => v.id === vehicleId);
+				if (found) {
+					setVehicle(found);
+					return;
+				}
+				const all = await vehiclesService.getAll({ limit: 100, offset: 0 });
+				if (!active) return;
+				const foundAll = all.data.find((v) => v.id === vehicleId);
+				setVehicle(foundAll ?? null);
+				if (!foundAll) toast.error('Vehicle not found');
+			} catch (error) {
+				if (active) {
+					toast.error('Failed to load vehicle', {
+						description: error instanceof Error ? error.message : undefined,
+					});
+				}
+			} finally {
+				if (active) setIsLoading(false);
+			}
+		})();
+		return () => {
+			active = false;
+		};
+	}, [vehicleId, refreshTick]);
+
+	const fetchVehicle = useCallback(() => {
+		setIsLoading(true);
+		setRefreshTick((t) => t + 1);
+	}, []);
 
 	const copyToClipboard = (value: string, label: string) => {
 		navigator.clipboard.writeText(value);

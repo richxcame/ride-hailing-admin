@@ -109,7 +109,7 @@ export default function DashboardPage() {
 	const [isLoadingActivity, setIsLoadingActivity] = useState(true);
 
 	// Last updated timestamp
-	const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
+	const [lastUpdated, setLastUpdated] = useState<Date>(() => new Date());
 
 	// Fetch base dashboard stats
 	const fetchDashboardStats = useCallback(async () => {
@@ -228,27 +228,60 @@ export default function DashboardPage() {
 
 	// Initial data fetch
 	useEffect(() => {
-		fetchDashboardStats();
-		fetchRealtimeMetrics();
-		fetchDashboardSummary();
-		fetchRevenueData();
-		fetchActionItems();
-		fetchActivityFeed();
+		let active = true;
+		const loadAll = async () => {
+			try {
+				const [stats, metrics, summaryData, revenue, actions, activityResponse] =
+					await Promise.all([
+						adminService.getDashboard(),
+						adminService.getRealtimeMetrics(),
+						adminService.getDashboardSummary({ period: summaryPeriod }),
+						adminService.getRevenueTrend({
+							period: revenuePeriod,
+							group_by: revenueGroupBy,
+						}),
+						adminService.getActionItems(),
+						adminService.getActivityFeed({ limit: 10 }),
+					]);
+				if (active) {
+					setDashboardStats(stats);
+					setRealtimeMetrics(metrics);
+					setLastUpdated(new Date());
+					setSummary(summaryData);
+					setRevenueTrend(revenue);
+					setActionItems(actions);
+					setActivityFeed(
+						Array.isArray(activityResponse?.data) ? activityResponse.data : []
+					);
+				}
+			} catch (err) {
+				if (active) {
+					console.error('Failed to load dashboard data:', err);
+				}
+			} finally {
+				if (active) {
+					setIsLoadingStats(false);
+					setIsLoadingRealtime(false);
+					setIsLoadingSummary(false);
+					setIsLoadingRevenue(false);
+					setIsLoadingActions(false);
+					setIsLoadingActivity(false);
+				}
+			}
+		};
+		loadAll();
 
 		// Auto-refresh realtime data every 30 seconds
 		const interval = setInterval(() => {
 			fetchRealtimeMetrics();
 		}, 30000);
 
-		return () => clearInterval(interval);
-	}, [
-		fetchDashboardStats,
-		fetchRealtimeMetrics,
-		fetchDashboardSummary,
-		fetchRevenueData,
-		fetchActionItems,
-		fetchActivityFeed,
-	]);
+		return () => {
+			active = false;
+			clearInterval(interval);
+		};
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, []);
 
 	// Refresh all data
 	const handleRefresh = () => {
@@ -278,7 +311,7 @@ export default function DashboardPage() {
 	};
 
 	const formatRelativeTime = (date: Date) => {
-		const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
+		const seconds = Math.floor((lastUpdated.getTime() - date.getTime()) / 1000);
 		if (seconds < 0) return 'just now';
 		if (seconds < 60) return 'just now';
 		const minutes = Math.floor(seconds / 60);

@@ -142,8 +142,101 @@ export default function FraudAlertsPage() {
 	}, [pagination.limit, pagination.offset, filters]);
 
 	useEffect(() => {
-		fetchAlerts();
-	}, [fetchAlerts]);
+		let active = true;
+		const load = async () => {
+			try {
+				const params: Record<string, string | number> = {
+					limit: pagination.limit,
+					offset: pagination.offset,
+				};
+
+				if (filters.status && filters.status !== 'all')
+					params.status = filters.status;
+				if (filters.alert_level && filters.alert_level !== 'all')
+					params.alert_level = filters.alert_level;
+				if (filters.alert_type && filters.alert_type !== 'all')
+					params.alert_type = filters.alert_type;
+
+				const response = await fraudService.getAlerts(params);
+				if (!active) return;
+				setAlerts(response.data);
+				setPagination((prev) => ({
+					...prev,
+					total: response.meta.total,
+				}));
+
+				const meta = response.meta as {
+					total: number;
+					stats?: Record<string, number>;
+				};
+				if (meta.stats) {
+					setStats({
+						total_alerts: meta.total,
+						pending_alerts: meta.stats.pending ?? 0,
+						investigating_alerts: meta.stats.investigating ?? 0,
+						resolved_alerts: meta.stats.resolved ?? 0,
+						critical_alerts: meta.stats.critical ?? 0,
+					});
+				} else {
+					try {
+						const statsData =
+							(await fraudService.getStatistics()) as unknown as Record<
+								string,
+								unknown
+							>;
+						if (!active) return;
+						setStats({
+							total_alerts: meta.total,
+							pending_alerts:
+								(statsData.pending_alerts as number) ?? 0,
+							investigating_alerts:
+								(statsData.investigating_alerts as number) ?? 0,
+							resolved_alerts:
+								(statsData.resolved_alerts as number) ?? 0,
+							critical_alerts:
+								(statsData.critical_alerts as number) ?? 0,
+						});
+					} catch {
+						if (!active) return;
+						setStats({
+							total_alerts: meta.total,
+							pending_alerts: response.data.filter(
+								(a) => a.status === 'pending',
+							).length,
+							investigating_alerts: response.data.filter(
+								(a) => a.status === 'investigating',
+							).length,
+							resolved_alerts: response.data.filter(
+								(a) =>
+									a.status === 'confirmed' ||
+									a.status === 'false_positive' ||
+									a.status === 'resolved',
+							).length,
+							critical_alerts: response.data.filter(
+								(a) => a.alert_level === 'critical',
+							).length,
+						});
+					}
+				}
+			} catch (error) {
+				if (active) {
+					const errorMessage =
+						error instanceof Error
+							? error.message
+							: 'Failed to load fraud alerts';
+					toast.error('Failed to load fraud alerts', {
+						description: errorMessage,
+					});
+				}
+			} finally {
+				if (active) setIsLoading(false);
+			}
+		};
+		load();
+		return () => {
+			active = false;
+		};
+	}, [pagination.limit, pagination.offset, filters]);
 
 	const handlePageChange = (newOffset: number) => {
 		setPagination((prev) => ({ ...prev, offset: newOffset }));

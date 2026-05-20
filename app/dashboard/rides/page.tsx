@@ -73,46 +73,54 @@ export default function RidesPage() {
 	const [rideToCancel, setRideToCancel] = useState<Ride | null>(null);
 	const [showCancelDialog, setShowCancelDialog] = useState(false);
 
-	const fetchRides = useCallback(async () => {
-		try {
-			setIsLoading(true);
-			const response = await adminService.getRecentRides({
-				limit: pagination.limit,
-				offset: pagination.offset,
-				...(statusFilter !== 'all' && { status: statusFilter }),
-				...(startDate && { start_date: startDate.toISOString().split('T')[0] }),
-				...(endDate && { end_date: endDate.toISOString().split('T')[0] }),
-			});
-			setRides(response.data);
-			setPagination((prev) => ({ ...prev, total: response.meta.total }));
-		} catch (error) {
-			const errorMessage = error instanceof Error ? error.message : 'Failed to load rides';
-			toast.error('Failed to load rides', { description: errorMessage });
-		} finally {
-			setIsLoading(false);
-		}
-	}, [pagination.limit, pagination.offset, statusFilter, startDate, endDate]);
-
-	const fetchStats = useCallback(async () => {
-		try {
-			const rideStats = await adminService.getRideStats({
-				...(startDate && { start_date: startDate.toISOString().split('T')[0] }),
-				...(endDate && { end_date: endDate.toISOString().split('T')[0] }),
-			});
-			setStats(rideStats);
-		} catch (error) {
-			console.error('Failed to load ride stats:', error);
-		}
-	}, [startDate, endDate]);
+	// Monotonic counter bumped by the Refresh button to re-run the load effect.
+	const [refreshTick, setRefreshTick] = useState(0);
 
 	useEffect(() => {
-		fetchRides();
-		fetchStats();
-	}, [fetchRides, fetchStats]);
+		let active = true;
+		const startDateStr = startDate?.toISOString().split('T')[0];
+		const endDateStr = endDate?.toISOString().split('T')[0];
+
+		(async () => {
+			try {
+				const [ridesRes, statsRes] = await Promise.all([
+					adminService.getRecentRides({
+						limit: pagination.limit,
+						offset: pagination.offset,
+						...(statusFilter !== 'all' && { status: statusFilter }),
+						...(startDateStr && { start_date: startDateStr }),
+						...(endDateStr && { end_date: endDateStr }),
+					}),
+					adminService
+						.getRideStats({
+							...(startDateStr && { start_date: startDateStr }),
+							...(endDateStr && { end_date: endDateStr }),
+						})
+						.catch((err) => {
+							console.error('Failed to load ride stats:', err);
+							return null;
+						}),
+				]);
+				if (!active) return;
+				setRides(ridesRes.data);
+				setPagination((prev) => ({ ...prev, total: ridesRes.meta.total }));
+				if (statsRes) setStats(statsRes);
+			} catch (error) {
+				if (!active) return;
+				const errorMessage = error instanceof Error ? error.message : 'Failed to load rides';
+				toast.error('Failed to load rides', { description: errorMessage });
+			} finally {
+				if (active) setIsLoading(false);
+			}
+		})();
+		return () => {
+			active = false;
+		};
+	}, [pagination.limit, pagination.offset, statusFilter, startDate, endDate, refreshTick]);
 
 	const handleRefresh = () => {
-		fetchRides();
-		fetchStats();
+		setIsLoading(true);
+		setRefreshTick((t) => t + 1);
 		toast.success('Rides refreshed');
 	};
 
@@ -154,8 +162,7 @@ export default function RidesPage() {
 			toast.success('Ride cancelled successfully');
 			setShowCancelDialog(false);
 			setRideToCancel(null);
-			fetchRides();
-			fetchStats();
+			setRefreshTick((t) => t + 1);
 		} catch (error) {
 			const errorMessage = error instanceof Error ? error.message : 'Failed to cancel ride';
 			toast.error('Failed to cancel ride', { description: errorMessage });

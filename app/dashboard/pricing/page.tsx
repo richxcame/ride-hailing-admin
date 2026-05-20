@@ -59,59 +59,66 @@ export default function PricingPage() {
 	const [isLoadingStats, setIsLoadingStats] = useState(true);
 	const [activeVersionId, setActiveVersionId] = useState<string | null>(null);
 
-	const fetchStats = useCallback(async () => {
-		try {
-			setIsLoadingStats(true);
-			const versionsRes = await pricingService.getVersions({ limit: 100 });
-
-			const activeVersion =
-				versionsRes.data.find((v) => v.status === 'active') || null;
-
-			setActiveVersionId(activeVersion?.id ?? null);
-
-			if (activeVersion) {
-				const [configsRes, timeRes, weatherRes, eventsRes] =
-					await Promise.all([
-						pricingService.getConfigs(activeVersion.id, { limit: 1 }),
-						pricingService.getTimeMultipliers(activeVersion.id, { limit: 1 }),
-						pricingService.getWeatherMultipliers(activeVersion.id, { limit: 1 }),
-						pricingService.getEventMultipliers(activeVersion.id, { limit: 100 }),
-					]);
-
-				const now = new Date().toISOString();
-				const pendingEvents = eventsRes.data.filter(
-					(e) => e.starts_at > now && e.is_active
-				).length;
-
-				setStats({
-					activeVersion,
-					totalConfigs: Number(configsRes.meta.total) || 0,
-					activeMultipliers:
-						(Number(timeRes.meta.total) || 0) + (Number(weatherRes.meta.total) || 0) + (Number(eventsRes.meta.total) || 0),
-					pendingEvents,
-				});
-			} else {
-				setStats({
-					activeVersion: null,
-					totalConfigs: 0,
-					activeMultipliers: 0,
-					pendingEvents: 0,
-				});
-			}
-		} catch {
-			toast.error('Failed to load pricing stats');
-		} finally {
-			setIsLoadingStats(false);
-		}
-	}, []);
+	// A monotonic counter; bumping it re-runs the load effect for manual refresh.
+	const [refreshTick, setRefreshTick] = useState(0);
 
 	useEffect(() => {
-		fetchStats();
-	}, [fetchStats]);
+		let active = true;
+		(async () => {
+			try {
+				const versionsRes = await pricingService.getVersions({ limit: 100 });
+				if (!active) return;
+
+				const activeVersion =
+					versionsRes.data.find((v) => v.status === 'active') || null;
+
+				setActiveVersionId(activeVersion?.id ?? null);
+
+				if (activeVersion) {
+					const [configsRes, timeRes, weatherRes, eventsRes] =
+						await Promise.all([
+							pricingService.getConfigs(activeVersion.id, { limit: 1 }),
+							pricingService.getTimeMultipliers(activeVersion.id, { limit: 1 }),
+							pricingService.getWeatherMultipliers(activeVersion.id, { limit: 1 }),
+							pricingService.getEventMultipliers(activeVersion.id, { limit: 100 }),
+						]);
+					if (!active) return;
+
+					const now = new Date().toISOString();
+					const pendingEvents = eventsRes.data.filter(
+						(e) => e.starts_at > now && e.is_active
+					).length;
+
+					setStats({
+						activeVersion,
+						totalConfigs: Number(configsRes.meta.total) || 0,
+						activeMultipliers:
+							(Number(timeRes.meta.total) || 0) + (Number(weatherRes.meta.total) || 0) + (Number(eventsRes.meta.total) || 0),
+						pendingEvents,
+					});
+				} else {
+					setStats({
+						activeVersion: null,
+						totalConfigs: 0,
+						activeMultipliers: 0,
+						pendingEvents: 0,
+					});
+				}
+			} catch {
+				if (active) toast.error('Failed to load pricing stats');
+			} finally {
+				if (active) setIsLoadingStats(false);
+			}
+		})();
+		return () => {
+			active = false;
+		};
+	}, [refreshTick]);
 
 	const handleRefresh = useCallback(() => {
-		fetchStats();
-	}, [fetchStats]);
+		setIsLoadingStats(true);
+		setRefreshTick((t) => t + 1);
+	}, []);
 
 	return (
 		<div className='flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6'>

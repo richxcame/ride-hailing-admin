@@ -72,22 +72,24 @@ export default function SettingsPage() {
 	const [isSaving, setIsSaving] = useState(false);
 	const [modifiedSettings, setModifiedSettings] = useState<Record<string, string>>({});
 
-	const fetchSettings = useCallback(async () => {
-		try {
-			setIsLoading(true);
-			const data = await settingsService.getSettings();
-			setSettings(data);
-			setModifiedSettings({});
-		} catch {
-			toast.error('Failed to load settings');
-		} finally {
-			setIsLoading(false);
-		}
-	}, []);
-
 	useEffect(() => {
-		fetchSettings();
-	}, [fetchSettings]);
+		let active = true;
+		(async () => {
+			try {
+				const data = await settingsService.getSettings();
+				if (!active) return;
+				setSettings(data);
+				setModifiedSettings({});
+			} catch {
+				if (active) toast.error('Failed to load settings');
+			} finally {
+				if (active) setIsLoading(false);
+			}
+		})();
+		return () => {
+			active = false;
+		};
+	}, []);
 
 	const handleValueChange = useCallback(
 		(key: string, newValue: string) => {

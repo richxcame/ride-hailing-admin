@@ -51,6 +51,12 @@ export function EditPromoDialog({ promo, onSuccess, trigger }: EditPromoDialogPr
 	const [validFrom, setValidFrom] = useState<Date | undefined>(new Date(promo.valid_from));
 	const [validUntil, setValidUntil] = useState<Date | undefined>(new Date(promo.valid_until));
 
+	// Reset form state to the latest promo when the dialog opens. The
+	// canonical fix per React docs is a `key` prop on the form sub-tree, but
+	// that requires extracting an inner component and we keep this dialog
+	// self-contained here. This is the "reset state when a prop changes"
+	// pattern — see https://react.dev/learn/you-might-not-need-an-effect.
+	/* eslint-disable react-hooks/set-state-in-effect */
 	useEffect(() => {
 		if (open) {
 			setFormData({
@@ -68,6 +74,7 @@ export function EditPromoDialog({ promo, onSuccess, trigger }: EditPromoDialogPr
 			setValidUntil(new Date(promo.valid_until));
 		}
 	}, [open, promo]);
+	/* eslint-enable react-hooks/set-state-in-effect */
 
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();

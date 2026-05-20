@@ -198,11 +198,43 @@ export default function GeographyPage() {
 		fetchZones,
 	]);
 
-	// Initial load
+	// Initial load — run once on mount. We deliberately don't depend on the
+	// memoized fetchers (which change when search/pagination change) because
+	// the rest of the page already calls them explicitly from event handlers.
 	useEffect(() => {
-		fetchCountries();
-		fetchStats();
-	}, [fetchCountries, fetchStats]);
+		let active = true;
+		(async () => {
+			try {
+				const response = await geographyService.getCountries({
+					limit: pagination.limit,
+					offset: 0,
+				});
+				if (active) {
+					setCountries(response.data);
+					setPagination((prev) => ({ ...prev, total: response.meta.total, offset: 0 }));
+				}
+			} catch (error) {
+				const msg = error instanceof Error ? error.message : 'Failed to load countries';
+				if (active) toast.error('Failed to load countries', { description: msg });
+			} finally {
+				if (active) setIsLoading(false);
+			}
+		})();
+		(async () => {
+			try {
+				const data = await geographyService.getStats();
+				if (active) setStats(data);
+			} catch (error) {
+				console.error('Failed to fetch geography stats:', error);
+			} finally {
+				if (active) setIsLoadingStats(false);
+			}
+		})();
+		return () => {
+			active = false;
+		};
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, []);
 
 	// Drill-down handlers
 	const handleDrillDown = (item: Country | Region | City) => {

@@ -54,7 +54,9 @@ export default function UsersPage() {
 	const [isLoading, setIsLoading] = useState(true);
 	const [searchQuery, setSearchQuery] = useState('');
 	const searchQueryRef = useRef(searchQuery);
-	searchQueryRef.current = searchQuery;
+	useEffect(() => {
+		searchQueryRef.current = searchQuery;
+	}, [searchQuery]);
 	const [roleFilter, setRoleFilter] = useState<string>('all');
 	const [statusFilter, setStatusFilter] = useState<string>('all');
 	const [pagination, setPagination] = useState({
@@ -136,12 +138,70 @@ export default function UsersPage() {
 	}, [pagination.limit, pagination.offset, roleFilter, statusFilter]);
 
 	useEffect(() => {
-		fetchStats();
-	}, [fetchStats]);
+		let active = true;
+		const load = async () => {
+			try {
+				const response = await adminService.getUsers({ limit: 1 });
+				if (active && response.meta.stats) {
+					const s = response.meta.stats;
+					const total = Number(s.total_users) || 0;
+					const activeCount = Number(s.active_users) || 0;
+					setStats({
+						total,
+						riders: Number(s.total_riders) || 0,
+						drivers: Number(s.total_drivers) || 0,
+						admins: Number(s.total_admins) || 0,
+						active: activeCount,
+						inactive: total - activeCount,
+					});
+				}
+			} catch (error) {
+				console.error('Failed to fetch stats:', error);
+			} finally {
+				if (active) setIsLoadingStats(false);
+			}
+		};
+		load();
+		return () => {
+			active = false;
+		};
+	}, []);
 
 	useEffect(() => {
-		fetchUsers();
-	}, [fetchUsers]);
+		let active = true;
+		const load = async () => {
+			try {
+				const response = await adminService.getUsers({
+					limit: pagination.limit,
+					offset: pagination.offset,
+					...(roleFilter !== 'all' && { role: roleFilter }),
+					...(statusFilter !== 'all' && { status: statusFilter as 'active' | 'inactive' }),
+					...(searchQueryRef.current && { search: searchQueryRef.current }),
+				});
+				if (active) {
+					setUsers(response.data);
+					setPagination((prev) => ({
+						...prev,
+						total: response.meta.total,
+					}));
+				}
+			} catch (error) {
+				if (active) {
+					const errorMessage =
+						error instanceof Error ? error.message : 'Failed to load users';
+					toast.error('Failed to load users', {
+						description: errorMessage,
+					});
+				}
+			} finally {
+				if (active) setIsLoading(false);
+			}
+		};
+		load();
+		return () => {
+			active = false;
+		};
+	}, [pagination.limit, pagination.offset, roleFilter, statusFilter]);
 
 	const handleSearch = () => {
 		setPagination((prev) => ({ ...prev, offset: 0 }));

@@ -139,13 +139,18 @@ const chartConfig = {
 
 export function ChartAreaInteractive() {
 	const isMobile = useIsMobile();
-	const [timeRange, setTimeRange] = React.useState('90d');
-
-	React.useEffect(() => {
+	// Track the last isMobile value as state; when it changes to true, also
+	// reset timeRange to '7d'. Reading & setting during render keeps the
+	// behavior identical to the previous effect without using setState in
+	// useEffect (which the lint rule flags).
+	const [prevIsMobile, setPrevIsMobile] = React.useState(isMobile);
+	const [timeRange, setTimeRange] = React.useState(isMobile ? '7d' : '90d');
+	if (prevIsMobile !== isMobile) {
+		setPrevIsMobile(isMobile);
 		if (isMobile) {
 			setTimeRange('7d');
 		}
-	}, [isMobile]);
+	}
 
 	const filteredData = chartData.filter((item) => {
 		const date = new Date(item.date);

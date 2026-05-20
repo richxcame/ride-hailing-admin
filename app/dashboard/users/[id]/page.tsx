@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import Link from 'next/link';
@@ -54,27 +54,31 @@ export default function UserDetailPage() {
 	const [activateDialogOpen, setActivateDialogOpen] = useState(false);
 	const [isActivating, setIsActivating] = useState(false);
 
-	const fetchUser = useCallback(async () => {
-		try {
-			setIsLoading(true);
-			const userData = await adminService.getUser(userId);
-			setUser(userData);
-		} catch {
-			toast.error('Failed to load user details');
-			router.push('/dashboard/users');
-		} finally {
-			setIsLoading(false);
-		}
-	}, [userId, router]);
+	const [refreshTick, setRefreshTick] = useState(0);
 
 	useEffect(() => {
-		if (userId) {
-			fetchUser();
-		}
-	}, [userId, fetchUser]);
+		if (!userId) return;
+		let active = true;
+		(async () => {
+			try {
+				const userData = await adminService.getUser(userId);
+				if (active) setUser(userData);
+			} catch {
+				if (!active) return;
+				toast.error('Failed to load user details');
+				router.push('/dashboard/users');
+			} finally {
+				if (active) setIsLoading(false);
+			}
+		})();
+		return () => {
+			active = false;
+		};
+	}, [userId, router, refreshTick]);
 
 	const handleRefresh = () => {
-		fetchUser();
+		setIsLoading(true);
+		setRefreshTick((t) => t + 1);
 		toast.success('User details refreshed');
 	};
 

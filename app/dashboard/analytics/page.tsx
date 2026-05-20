@@ -49,9 +49,9 @@ import { DatePicker } from '@/components/date-picker';
 export default function AnalyticsPage() {
 	const [isLoading, setIsLoading] = useState(true);
 	const [startDate, setStartDate] = useState<Date | undefined>(
-		new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+		() => new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
 	);
-	const [endDate, setEndDate] = useState<Date | undefined>(new Date());
+	const [endDate, setEndDate] = useState<Date | undefined>(() => new Date());
 
 	// Analytics data states
 	const [dashboard, setDashboard] = useState<AnalyticsDashboard | null>(null);
@@ -108,8 +108,59 @@ export default function AnalyticsPage() {
 	}, [startDate, endDate]);
 
 	useEffect(() => {
-		fetchAnalytics();
-	}, [fetchAnalytics]);
+		let active = true;
+		const load = async () => {
+			try {
+				const params = {
+					start_date: startDate?.toISOString().split('T')[0] || '',
+					end_date: endDate?.toISOString().split('T')[0] || '',
+				};
+
+				const [
+					dashboardData,
+					revenueData,
+					rideTypesData,
+					topDriversData,
+					metricsData,
+					driversData,
+					ridersData,
+					financialData,
+				] = await Promise.all([
+					adminService.getAnalyticsDashboard(),
+					adminService.getAnalyticsRevenue(params),
+					adminService.getAnalyticsRideTypes(params),
+					adminService.getAnalyticsTopDrivers({ ...params, limit: 10 }),
+					adminService.getAnalyticsRidesMetrics(params),
+					adminService.getAnalyticsDriversPerformance(params),
+					adminService.getAnalyticsRidersGrowth(params),
+					adminService.getAnalyticsFinancialReport(params),
+				]);
+
+				if (active) {
+					setDashboard(dashboardData);
+					setRevenue(revenueData);
+					setRideTypes(Array.isArray(rideTypesData) ? rideTypesData : []);
+					setTopDrivers(Array.isArray(topDriversData) ? topDriversData : []);
+					setRidesMetrics(metricsData);
+					setDriversPerformance(driversData);
+					setRidersGrowth(ridersData);
+					setFinancialReport(financialData);
+				}
+			} catch (error) {
+				if (active) {
+					const errorMessage =
+						error instanceof Error ? error.message : 'Failed to load analytics';
+					toast.error('Failed to load analytics', { description: errorMessage });
+				}
+			} finally {
+				if (active) setIsLoading(false);
+			}
+		};
+		load();
+		return () => {
+			active = false;
+		};
+	}, [startDate, endDate]);
 
 	const formatCurrency = (value: number) => {
 		return new Intl.NumberFormat('en-US', {

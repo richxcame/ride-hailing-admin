@@ -130,11 +130,34 @@ export default function DriverDetailPage() {
 	}, [driverId, router]);
 
 	useEffect(() => {
-		if (driverId) {
-			fetchDriver();
-			fetchBgCheck(driverId);
-		}
-	}, [driverId, fetchDriver, fetchBgCheck]);
+		if (!driverId) return;
+		let active = true;
+		const load = async () => {
+			try {
+				const [driverData, check] = await Promise.all([
+					adminService.getDriver(driverId),
+					verificationService
+						.getDriverBackgroundCheck(driverId)
+						.catch(() => null),
+				]);
+				if (active) {
+					setDriver(driverData);
+					if (check) setBgCheck(check);
+				}
+			} catch {
+				if (active) {
+					toast.error('Failed to load driver details');
+					router.push('/dashboard/drivers');
+				}
+			} finally {
+				if (active) setIsLoading(false);
+			}
+		};
+		load();
+		return () => {
+			active = false;
+		};
+	}, [driverId, router]);
 
 	const handleRefresh = () => {
 		fetchDriver();

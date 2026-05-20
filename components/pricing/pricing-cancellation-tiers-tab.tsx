@@ -72,22 +72,29 @@ export function PricingCancellationTiersTab({ versionId, onRefresh }: PricingCan
 	const [editingFees, setEditingFees] = useState<CancellationFee[]>([]);
 	const [isSubmitting, setIsSubmitting] = useState(false);
 
-	const fetchData = useCallback(async () => {
-		setIsLoading(true);
-		try {
-			// Fetch all configs for this version
-			const response = await pricingService.getConfigs(versionId, { limit: 100 });
-			setConfigs(response.data);
-		} catch {
-			toast.error('Failed to load pricing configs');
-		} finally {
-			setIsLoading(false);
-		}
-	}, [versionId]);
+	const [refreshTick, setRefreshTick] = useState(0);
 
 	useEffect(() => {
-		fetchData();
-	}, [fetchData]);
+		let active = true;
+		(async () => {
+			try {
+				const response = await pricingService.getConfigs(versionId, { limit: 100 });
+				if (active) setConfigs(response.data);
+			} catch {
+				if (active) toast.error('Failed to load pricing configs');
+			} finally {
+				if (active) setIsLoading(false);
+			}
+		})();
+		return () => {
+			active = false;
+		};
+	}, [versionId, refreshTick]);
+
+	const fetchData = useCallback(() => {
+		setIsLoading(true);
+		setRefreshTick((t) => t + 1);
+	}, []);
 
 	const handleOpenEdit = (config: PricingConfig) => {
 		setEditingConfig(config);

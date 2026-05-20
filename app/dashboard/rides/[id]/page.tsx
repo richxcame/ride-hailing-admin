@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, use, useCallback } from 'react';
+import { useEffect, useState, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import {
@@ -47,23 +47,31 @@ export default function RideDetailPage({ params }: { params: Promise<{ id: strin
 	const [ride, setRide] = useState<Ride | null>(null);
 	const [isLoading, setIsLoading] = useState(true);
 	const [showCancelDialog, setShowCancelDialog] = useState(false);
-
-	const fetchRide = useCallback(async () => {
-		try {
-			setIsLoading(true);
-			const data = await adminService.getRide(resolvedParams.id);
-			setRide(data);
-		} catch (error) {
-			const errorMessage = error instanceof Error ? error.message : 'Failed to load ride';
-			toast.error('Failed to load ride', { description: errorMessage });
-		} finally {
-			setIsLoading(false);
-		}
-	}, [resolvedParams.id]);
+	const [refreshTick, setRefreshTick] = useState(0);
 
 	useEffect(() => {
-		fetchRide();
-	}, [fetchRide]);
+		let active = true;
+		(async () => {
+			try {
+				const data = await adminService.getRide(resolvedParams.id);
+				if (active) setRide(data);
+			} catch (error) {
+				if (!active) return;
+				const errorMessage = error instanceof Error ? error.message : 'Failed to load ride';
+				toast.error('Failed to load ride', { description: errorMessage });
+			} finally {
+				if (active) setIsLoading(false);
+			}
+		})();
+		return () => {
+			active = false;
+		};
+	}, [resolvedParams.id, refreshTick]);
+
+	const fetchRide = () => {
+		setIsLoading(true);
+		setRefreshTick((t) => t + 1);
+	};
 
 	const formatDateTime = (dateString: string) => {
 		return new Date(dateString).toLocaleString('en-US', {

@@ -58,7 +58,9 @@ export default function DriversPage() {
 	const [activeTab, setActiveTab] = useState('all');
 	const [searchQuery, setSearchQuery] = useState('');
 	const searchQueryRef = useRef(searchQuery);
-	searchQueryRef.current = searchQuery;
+	useEffect(() => {
+		searchQueryRef.current = searchQuery;
+	}, [searchQuery]);
 	const [statusFilter, setStatusFilter] = useState<string>('all');
 	const [stats, setStats] = useState<DriverStats | null>(null);
 	const [isLoadingStats, setIsLoadingStats] = useState(true);
@@ -153,16 +155,91 @@ export default function DriversPage() {
 	}, [pendingPagination.limit, pendingPagination.offset]);
 
 	useEffect(() => {
-		fetchStats();
-	}, [fetchStats]);
+		let active = true;
+		const load = async () => {
+			try {
+				const response = await adminService.getDrivers({ limit: 1 });
+				if (active && response.meta.stats) {
+					const s = response.meta.stats;
+					setStats({
+						total: Number(s.total_drivers) || 0,
+						online: Number(s.online_drivers) || 0,
+						offline: Number(s.offline_drivers) || 0,
+						available: Number(s.available_drivers) || 0,
+						pending: Number(s.pending_approvals) || 0,
+					});
+				}
+			} catch (error) {
+				console.error('Failed to fetch stats:', error);
+			} finally {
+				if (active) setIsLoadingStats(false);
+			}
+		};
+		load();
+		return () => {
+			active = false;
+		};
+	}, []);
 
 	useEffect(() => {
-		fetchDrivers();
-	}, [fetchDrivers]);
+		let active = true;
+		const load = async () => {
+			try {
+				const response = await adminService.getDrivers({
+					limit: pagination.limit,
+					offset: pagination.offset,
+					...(statusFilter !== 'all' && {
+						status: statusFilter as 'online' | 'offline' | 'available' | 'pending',
+					}),
+					...(searchQueryRef.current && { search: searchQueryRef.current }),
+				});
+				if (active) {
+					setDrivers(response.data);
+					setPagination((prev) => ({ ...prev, total: response.meta.total }));
+				}
+			} catch (error) {
+				if (active) {
+					const errorMessage =
+						error instanceof Error ? error.message : 'Failed to load drivers';
+					toast.error('Failed to load drivers', { description: errorMessage });
+				}
+			} finally {
+				if (active) setIsLoadingDrivers(false);
+			}
+		};
+		load();
+		return () => {
+			active = false;
+		};
+	}, [pagination.limit, pagination.offset, statusFilter]);
 
 	useEffect(() => {
-		fetchPendingDrivers();
-	}, [fetchPendingDrivers]);
+		let active = true;
+		const load = async () => {
+			try {
+				const response = await adminService.getPendingDrivers({
+					limit: pendingPagination.limit,
+					offset: pendingPagination.offset,
+				});
+				if (active) {
+					setPendingDrivers(response.data);
+					setPendingPagination((prev) => ({ ...prev, total: response.meta.total }));
+				}
+			} catch (error) {
+				if (active) {
+					const errorMessage =
+						error instanceof Error ? error.message : 'Failed to load pending drivers';
+					toast.error('Failed to load pending drivers', { description: errorMessage });
+				}
+			} finally {
+				if (active) setIsLoadingPending(false);
+			}
+		};
+		load();
+		return () => {
+			active = false;
+		};
+	}, [pendingPagination.limit, pendingPagination.offset]);
 
 	const handleSearch = () => {
 		setPagination((prev) => ({ ...prev, offset: 0 }));

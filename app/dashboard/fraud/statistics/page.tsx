@@ -25,9 +25,9 @@ import { DatePicker } from '@/components/date-picker';
 export default function FraudStatisticsPage() {
 	const [isLoading, setIsLoading] = useState(true);
 	const [startDate, setStartDate] = useState<Date | undefined>(
-		new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+		() => new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
 	);
-	const [endDate, setEndDate] = useState<Date | undefined>(new Date());
+	const [endDate, setEndDate] = useState<Date | undefined>(() => new Date());
 	const [statistics, setStatistics] = useState<FraudStatistics | null>(null);
 	const [patterns, setPatterns] = useState<FraudPattern[]>([]);
 
@@ -55,8 +55,38 @@ export default function FraudStatisticsPage() {
 	}, [startDate, endDate]);
 
 	useEffect(() => {
-		fetchData();
-	}, [fetchData]);
+		let active = true;
+		const load = async () => {
+			try {
+				const params = {
+					start_date: startDate?.toISOString().split('T')[0] || '',
+					end_date: endDate?.toISOString().split('T')[0] || '',
+				};
+
+				const [statsData, patternsData] = await Promise.all([
+					fraudService.getStatistics(params),
+					fraudService.getPatterns({ limit: 10 }),
+				]);
+
+				if (active) {
+					setStatistics(statsData);
+					setPatterns(patternsData);
+				}
+			} catch (error) {
+				if (active) {
+					const errorMessage =
+						error instanceof Error ? error.message : 'Failed to load fraud statistics';
+					toast.error('Failed to load fraud statistics', { description: errorMessage });
+				}
+			} finally {
+				if (active) setIsLoading(false);
+			}
+		};
+		load();
+		return () => {
+			active = false;
+		};
+	}, [startDate, endDate]);
 
 	const formatCurrency = (value: number) => {
 		return new Intl.NumberFormat('en-US', {

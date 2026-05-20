@@ -122,26 +122,34 @@ export function PricingWeatherMultipliersTab({ versionId, onRefresh }: PricingWe
 	const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 	const [deletingId, setDeletingId] = useState<string | null>(null);
 
-	const fetchData = useCallback(async () => {
-		setIsLoading(true);
-		try {
-			const response = await pricingService.getWeatherMultipliers(versionId, {
-				limit: 50,
-				country_id: countryId,
-				region_id: regionId,
-				city_id: cityId,
-			});
-			setData(response.data);
-		} catch {
-			toast.error('Failed to load weather multipliers');
-		} finally {
-			setIsLoading(false);
-		}
-	}, [versionId, countryId, regionId, cityId]);
+	const [refreshTick, setRefreshTick] = useState(0);
 
 	useEffect(() => {
-		fetchData();
-	}, [fetchData]);
+		let active = true;
+		(async () => {
+			try {
+				const response = await pricingService.getWeatherMultipliers(versionId, {
+					limit: 50,
+					country_id: countryId,
+					region_id: regionId,
+					city_id: cityId,
+				});
+				if (active) setData(response.data);
+			} catch {
+				if (active) toast.error('Failed to load weather multipliers');
+			} finally {
+				if (active) setIsLoading(false);
+			}
+		})();
+		return () => {
+			active = false;
+		};
+	}, [versionId, countryId, regionId, cityId, refreshTick]);
+
+	const fetchData = useCallback(() => {
+		setIsLoading(true);
+		setRefreshTick((t) => t + 1);
+	}, []);
 
 	const getLocationLabel = (item: WeatherMultiplier): string => {
 		if (item.city_id) return `City: ${item.city_id.substring(0, 8)}...`;
