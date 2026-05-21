@@ -218,16 +218,35 @@ export async function apiRequest<T>(
     throw new ApiError(response.data.error || 'Request failed');
   }
 
-  // For paginated responses, return both data and meta
-  // Check if the response has both data array and meta object
+  // For paginated responses, return both data and meta.
   if (
     response.data.data &&
     Array.isArray(response.data.data) &&
     'meta' in response.data
   ) {
+    // The Go backend tags meta fields with `omitempty`, so total/limit/offset
+    // are stripped from the JSON when their value is 0 (e.g. empty list).
+    // Normalize them back to numbers so consumers can do arithmetic without
+    // checking for undefined every time.
+    const rawMeta = (response.data.meta ?? {}) as Partial<{
+      limit: number;
+      offset: number;
+      total: number;
+      total_pages: number;
+      stats: unknown;
+    }>;
+    const limit = rawMeta.limit ?? 0;
+    const total = rawMeta.total ?? 0;
     return {
       data: response.data.data,
-      meta: response.data.meta,
+      meta: {
+        limit,
+        offset: rawMeta.offset ?? 0,
+        total,
+        total_pages:
+          rawMeta.total_pages ?? (limit > 0 ? Math.ceil(total / limit) : 0),
+        ...(rawMeta.stats !== undefined ? { stats: rawMeta.stats } : {}),
+      },
     } as T;
   }
 
