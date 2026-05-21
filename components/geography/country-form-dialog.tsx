@@ -47,11 +47,8 @@ export function CountryFormDialog({
 	});
 
 	const getInitialMethods = (data?: Country | null): string[] => {
-		const methods = data?.payment_methods;
-		if (methods && typeof methods === 'object' && Array.isArray((methods as Record<string, unknown>).methods)) {
-			return (methods as Record<string, unknown>).methods as string[];
-		}
-		return ['cash'];
+		// Backend returns/accepts a flat string array; default to ['cash'].
+		return data?.payment_methods?.length ? data.payment_methods : ['cash'];
 	};
 
 	const [paymentMethods, setPaymentMethods] = useState<string[]>(getInitialMethods(initialData));
@@ -116,7 +113,7 @@ export function CountryFormDialog({
 				phone_prefix: formData.phone_prefix.trim(),
 				timezone: formData.timezone.trim(),
 				is_active: formData.is_active,
-				payment_methods: { methods: paymentMethods },
+				payment_methods: paymentMethods,
 			};
 
 			await onSubmit(payload);

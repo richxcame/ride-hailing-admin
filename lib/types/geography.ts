@@ -21,8 +21,9 @@ export interface Country {
 	is_active: boolean;
 	launched_at?: string;
 	regulations: Record<string, unknown>;
-	payment_methods: Record<string, unknown>;
-	required_driver_documents: Record<string, unknown>;
+	// Backend stores + returns these as flat string arrays; same shape on PUT.
+	payment_methods: string[];
+	required_driver_documents: string[];
 	created_at: string;
 	updated_at: string;
 }
@@ -102,8 +103,8 @@ export interface CreateCountryRequest {
 	timezone: string;
 	is_active: boolean;
 	regulations?: Record<string, unknown>;
-	payment_methods?: Record<string, unknown>;
-	required_driver_documents?: Record<string, unknown>;
+	payment_methods?: string[];
+	required_driver_documents?: string[];
 }
 
 export interface UpdateCountryRequest {
@@ -117,8 +118,8 @@ export interface UpdateCountryRequest {
 	timezone?: string;
 	is_active?: boolean;
 	regulations?: Record<string, unknown>;
-	payment_methods?: Record<string, unknown>;
-	required_driver_documents?: Record<string, unknown>;
+	payment_methods?: string[];
+	required_driver_documents?: string[];
 }
 
 export interface CreateRegionRequest {

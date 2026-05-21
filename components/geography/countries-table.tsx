@@ -129,10 +129,7 @@ export function CountriesTable({
 			accessorKey: 'payment_methods',
 			header: 'Payment Methods',
 			cell: ({ row }) => {
-				const pm = row.original.payment_methods;
-				const list = pm && typeof pm === 'object' && Array.isArray((pm as Record<string, unknown>).methods)
-					? ((pm as Record<string, unknown>).methods as string[])
-					: [];
+				const list = row.original.payment_methods ?? [];
 				return <span className='text-sm'>{list.length > 0 ? list.join(', ') : '-'}</span>;
 			},
 		},
