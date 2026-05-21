@@ -12,6 +12,8 @@ import { IconPlus, IconEdit, IconTrash } from '@tabler/icons-react';
 import { toast } from 'sonner';
 import { rideTypesService } from '@/lib/api/ride-types.service';
 import { geographyService } from '@/lib/api/geography.service';
+import { fetchAllPages } from '@/lib/api/paginate';
+import { EntityCombobox } from '@/components/entity-combobox';
 import { CountryRideTypeWithDetails, RideType } from '@/lib/types/ride-types';
 import { Country } from '@/lib/types/geography';
 import { Badge } from '@/components/ui/badge';
@@ -84,20 +86,24 @@ export function CountryAvailabilityTab() {
 	const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 	const [deletingItem, setDeletingItem] = useState<CountryRideTypeWithDetails | null>(null);
 
-	// Fetch countries
+	// Fetch every country (the backend caps each page at 100, so paginate).
 	useEffect(() => {
-		const fetchCountries = async () => {
+		let active = true;
+		(async () => {
 			try {
-				setIsLoadingCountries(true);
-				const response = await geographyService.getCountries({ limit: 100 });
-				setCountries(response.data);
+				const all = await fetchAllPages((offset, limit) =>
+					geographyService.getCountries({ offset, limit }),
+				);
+				if (active) setCountries(all);
 			} catch {
-				toast.error('Failed to load countries');
+				if (active) toast.error('Failed to load countries');
 			} finally {
-				setIsLoadingCountries(false);
+				if (active) setIsLoadingCountries(false);
 			}
+		})();
+		return () => {
+			active = false;
 		};
-		fetchCountries();
 	}, []);
 
 	// Fetch global ride types (for the add dialog)
@@ -277,25 +283,18 @@ export function CountryAvailabilityTab() {
 			<div className='flex flex-wrap items-end justify-between gap-3'>
 				<div className='space-y-2'>
 					<Label>Select Country</Label>
-					{isLoadingCountries ? (
-						<Skeleton className='h-10 w-64' />
-					) : (
-						<Select
-							value={selectedCountryId}
-							onValueChange={setSelectedCountryId}
-						>
-							<SelectTrigger className='w-64'>
-								<SelectValue placeholder='Choose a country' />
-							</SelectTrigger>
-							<SelectContent>
-								{countries.map((c) => (
-									<SelectItem key={c.id} value={c.id}>
-										{c.name} ({c.code})
-									</SelectItem>
-								))}
-							</SelectContent>
-						</Select>
-					)}
+					<EntityCombobox
+						items={countries.map((c) => ({
+							id: c.id,
+							label: `${c.name} (${c.code})`,
+						}))}
+						value={selectedCountryId}
+						onChange={setSelectedCountryId}
+						placeholder='Search countries…'
+						emptyMessage='No countries found'
+						isLoading={isLoadingCountries}
+						className='w-64'
+					/>
 				</div>
 				{selectedCountryId && (
 					<Button onClick={handleOpenCreate} disabled={availableRideTypes.length === 0}>

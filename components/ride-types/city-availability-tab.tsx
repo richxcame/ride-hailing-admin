@@ -12,6 +12,8 @@ import { IconPlus, IconEdit, IconTrash } from '@tabler/icons-react';
 import { toast } from 'sonner';
 import { rideTypesService } from '@/lib/api/ride-types.service';
 import { geographyService } from '@/lib/api/geography.service';
+import { fetchAllPages } from '@/lib/api/paginate';
+import { EntityCombobox } from '@/components/entity-combobox';
 import { CityRideTypeWithDetails, RideType } from '@/lib/types/ride-types';
 import { Country, Region, City } from '@/lib/types/geography';
 import { Badge } from '@/components/ui/badge';
@@ -93,20 +95,24 @@ export function CityAvailabilityTab() {
 	const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 	const [deletingItem, setDeletingItem] = useState<CityRideTypeWithDetails | null>(null);
 
-	// Fetch countries
+	// Fetch every country (the backend caps each page at 100, so paginate).
 	useEffect(() => {
-		const fetchCountries = async () => {
+		let active = true;
+		(async () => {
 			try {
-				setIsLoadingCountries(true);
-				const response = await geographyService.getCountries({ limit: 100 });
-				setCountries(response.data);
+				const all = await fetchAllPages((offset, limit) =>
+					geographyService.getCountries({ offset, limit }),
+				);
+				if (active) setCountries(all);
 			} catch {
-				toast.error('Failed to load countries');
+				if (active) toast.error('Failed to load countries');
 			} finally {
-				setIsLoadingCountries(false);
+				if (active) setIsLoadingCountries(false);
 			}
+		})();
+		return () => {
+			active = false;
 		};
-		fetchCountries();
 	}, []);
 
 	// Fetch global ride types
@@ -122,52 +128,47 @@ export function CityAvailabilityTab() {
 		fetchGlobalRideTypes();
 	}, []);
 
-	// Fetch regions when country changes
+	// Load every region for the selected country (paginate to bypass the
+	// 100-per-page backend cap).
 	useEffect(() => {
-		if (!selectedCountryId) {
-			setRegions([]);
-			setSelectedRegionId('');
-			setCities([]);
-			setSelectedCityId('');
-			return;
-		}
-		const fetchRegions = async () => {
+		if (!selectedCountryId) return;
+		let active = true;
+		(async () => {
 			try {
-				setIsLoadingRegions(true);
-				const response = await geographyService.getRegions(selectedCountryId, { limit: 100 });
-				setRegions(response.data);
-				setSelectedRegionId('');
-				setCities([]);
-				setSelectedCityId('');
+				const all = await fetchAllPages((offset, limit) =>
+					geographyService.getRegions(selectedCountryId, { offset, limit }),
+				);
+				if (active) setRegions(all);
 			} catch {
-				toast.error('Failed to load regions');
+				if (active) toast.error('Failed to load regions');
 			} finally {
-				setIsLoadingRegions(false);
+				if (active) setIsLoadingRegions(false);
 			}
+		})();
+		return () => {
+			active = false;
 		};
-		fetchRegions();
 	}, [selectedCountryId]);
 
-	// Fetch cities when region changes
+	// Load every city for the selected region (paginated, see above).
 	useEffect(() => {
-		if (!selectedRegionId) {
-			setCities([]);
-			setSelectedCityId('');
-			return;
-		}
-		const fetchCities = async () => {
+		if (!selectedRegionId) return;
+		let active = true;
+		(async () => {
 			try {
-				setIsLoadingCities(true);
-				const response = await geographyService.getCities(selectedRegionId, { limit: 100 });
-				setCities(response.data);
-				setSelectedCityId('');
+				const all = await fetchAllPages((offset, limit) =>
+					geographyService.getCities(selectedRegionId, { offset, limit }),
+				);
+				if (active) setCities(all);
 			} catch {
-				toast.error('Failed to load cities');
+				if (active) toast.error('Failed to load cities');
 			} finally {
-				setIsLoadingCities(false);
+				if (active) setIsLoadingCities(false);
 			}
+		})();
+		return () => {
+			active = false;
 		};
-		fetchCities();
 	}, [selectedRegionId]);
 
 	// Fetch ride types for selected city
@@ -331,70 +332,46 @@ export function CityAvailabilityTab() {
 			<div className='flex flex-wrap items-end gap-3'>
 				<div className='space-y-2'>
 					<Label>Country</Label>
-					{isLoadingCountries ? (
-						<Skeleton className='h-10 w-48' />
-					) : (
-						<Select value={selectedCountryId} onValueChange={setSelectedCountryId}>
-							<SelectTrigger className='w-48'>
-								<SelectValue placeholder='Select country' />
-							</SelectTrigger>
-							<SelectContent>
-								{countries.map((c) => (
-									<SelectItem key={c.id} value={c.id}>
-										{c.name}
-									</SelectItem>
-								))}
-							</SelectContent>
-						</Select>
-					)}
+					<EntityCombobox
+						items={countries.map((c) => ({
+							id: c.id,
+							label: `${c.name}${c.code ? ` (${c.code})` : ''}`,
+						}))}
+						value={selectedCountryId}
+						onChange={setSelectedCountryId}
+						placeholder='Search countries…'
+						emptyMessage='No countries found'
+						isLoading={isLoadingCountries}
+						className='w-48'
+					/>
 				</div>
 
 				<div className='space-y-2'>
 					<Label>Region</Label>
-					{isLoadingRegions ? (
-						<Skeleton className='h-10 w-48' />
-					) : (
-						<Select
-							value={selectedRegionId}
-							onValueChange={setSelectedRegionId}
-							disabled={!selectedCountryId || regions.length === 0}
-						>
-							<SelectTrigger className='w-48'>
-								<SelectValue placeholder='Select region' />
-							</SelectTrigger>
-							<SelectContent>
-								{regions.map((r) => (
-									<SelectItem key={r.id} value={r.id}>
-										{r.name}
-									</SelectItem>
-								))}
-							</SelectContent>
-						</Select>
-					)}
+					<EntityCombobox
+						items={regions.map((r) => ({ id: r.id, label: r.name }))}
+						value={selectedRegionId}
+						onChange={setSelectedRegionId}
+						placeholder='Search regions…'
+						emptyMessage='No regions found'
+						isLoading={isLoadingRegions}
+						disabled={!selectedCountryId}
+						className='w-48'
+					/>
 				</div>
 
 				<div className='space-y-2'>
 					<Label>City</Label>
-					{isLoadingCities ? (
-						<Skeleton className='h-10 w-48' />
-					) : (
-						<Select
-							value={selectedCityId}
-							onValueChange={setSelectedCityId}
-							disabled={!selectedRegionId || cities.length === 0}
-						>
-							<SelectTrigger className='w-48'>
-								<SelectValue placeholder='Select city' />
-							</SelectTrigger>
-							<SelectContent>
-								{cities.map((c) => (
-									<SelectItem key={c.id} value={c.id}>
-										{c.name}
-									</SelectItem>
-								))}
-							</SelectContent>
-						</Select>
-					)}
+					<EntityCombobox
+						items={cities.map((c) => ({ id: c.id, label: c.name }))}
+						value={selectedCityId}
+						onChange={setSelectedCityId}
+						placeholder='Search cities…'
+						emptyMessage='No cities found'
+						isLoading={isLoadingCities}
+						disabled={!selectedRegionId}
+						className='w-48'
+					/>
 				</div>
 
 				{selectedCityId && (
