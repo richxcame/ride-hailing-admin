@@ -16,6 +16,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
+import { DateTimePicker } from '@/components/date-time-picker';
 import {
 	Dialog,
 	DialogContent,
@@ -104,10 +105,10 @@ export function PricingVersionsTab({ onRefresh }: PricingVersionsTabProps) {
 			name: version.name,
 			description: version.description || '',
 			effective_from: version.effective_from
-				? new Date(version.effective_from).toISOString().slice(0, 16)
+				? new Date(version.effective_from).toISOString()
 				: '',
 			effective_until: version.effective_until
-				? new Date(version.effective_until).toISOString().slice(0, 16)
+				? new Date(version.effective_until).toISOString()
 				: '',
 		});
 		setEditDialogOpen(true);
@@ -272,24 +273,22 @@ export function PricingVersionsTab({ onRefresh }: PricingVersionsTabProps) {
 				/>
 			</div>
 			<div className='grid grid-cols-2 gap-4'>
-				<div className='space-y-2'>
-					<Label htmlFor='form-effective-from'>Effective From</Label>
-					<Input
-						id='form-effective-from'
-						type='datetime-local'
-						value={formData.effective_from}
-						onChange={(e) => handleInputChange('effective_from', e.target.value)}
-					/>
-				</div>
-				<div className='space-y-2'>
-					<Label htmlFor='form-effective-until'>Effective Until</Label>
-					<Input
-						id='form-effective-until'
-						type='datetime-local'
-						value={formData.effective_until}
-						onChange={(e) => handleInputChange('effective_until', e.target.value)}
-					/>
-				</div>
+				<DateTimePicker
+					label='Effective From'
+					placeholder='Pick a start date & time'
+					date={formData.effective_from ? new Date(formData.effective_from) : undefined}
+					setDate={(d) =>
+						handleInputChange('effective_from', d ? d.toISOString() : '')
+					}
+				/>
+				<DateTimePicker
+					label='Effective Until'
+					placeholder='Pick an end date & time'
+					date={formData.effective_until ? new Date(formData.effective_until) : undefined}
+					setDate={(d) =>
+						handleInputChange('effective_until', d ? d.toISOString() : '')
+					}
+				/>
 			</div>
 		</>
 	);
