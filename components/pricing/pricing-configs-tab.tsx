@@ -825,18 +825,20 @@ export function PricingConfigsTab({ versionId, onRefresh }: PricingConfigsTabPro
 					<div className='flex flex-wrap items-end gap-3'>
 						<div className='space-y-1.5'>
 							<Label className='text-xs text-muted-foreground'>Version</Label>
+							{/* Configs are always scoped to one version, so this defaults to
+							    the active version rather than an "all" option that couldn't
+							    actually list across versions. */}
 							<Select
-								value={filterVersionId || 'all'}
-								onValueChange={(v) => setFilterVersionId(v === 'all' ? undefined : v)}
+								value={filterVersionId ?? versionId}
+								onValueChange={(v) => setFilterVersionId(v)}
 							>
-								<SelectTrigger className='w-[180px]'>
-									<SelectValue placeholder='All Versions' />
+								<SelectTrigger className='w-55'>
+									<SelectValue placeholder='Select version' />
 								</SelectTrigger>
 								<SelectContent>
-									<SelectItem value='all'>All Versions</SelectItem>
 									{versions.map((v) => (
 										<SelectItem key={v.id} value={v.id}>
-											{v.name}
+											{v.name} · {v.status}
 										</SelectItem>
 									))}
 								</SelectContent>
