@@ -121,7 +121,7 @@ export function PromoDetailDialog({ promoId, open, onOpenChange, onUpdate }: Pro
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
-			<DialogContent className='max-w-3xl max-h-[90vh] overflow-y-auto'>
+			<DialogContent size='xl'>
 				<DialogHeader>
 					<DialogTitle className='flex items-center gap-2'>
 						<IconTag className='h-5 w-5' />

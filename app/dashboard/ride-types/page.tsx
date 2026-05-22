@@ -441,7 +441,7 @@ export default function RideTypesPage() {
 
 					{/* Create/Edit Dialog */}
 					<Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-						<DialogContent>
+						<DialogContent size='lg'>
 							<DialogHeader>
 								<DialogTitle>
 									{editingItem ? 'Edit Ride Type' : 'Add Ride Type'}

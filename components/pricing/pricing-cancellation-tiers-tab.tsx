@@ -219,7 +219,7 @@ export function PricingCancellationTiersTab({ versionId, onRefresh }: PricingCan
 
 			{/* Edit Cancellation Fees Dialog */}
 			<Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-				<DialogContent className='max-w-lg'>
+				<DialogContent size='lg'>
 					<DialogHeader>
 						<DialogTitle>Edit Cancellation Fees</DialogTitle>
 						<DialogDescription>

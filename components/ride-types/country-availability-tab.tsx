@@ -357,7 +357,7 @@ export function CountryAvailabilityTab() {
 
 			{/* Create/Edit Dialog */}
 			<Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-				<DialogContent>
+				<DialogContent size='lg'>
 					<DialogHeader>
 						<DialogTitle>
 							{editingItem ? 'Edit Country Ride Type' : 'Add Ride Type to Country'}

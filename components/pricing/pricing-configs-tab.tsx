@@ -968,7 +968,7 @@ export function PricingConfigsTab({ versionId, onRefresh }: PricingConfigsTabPro
 
 			{/* Create Dialog */}
 			<Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
-				<DialogContent className='max-w-2xl max-h-[90vh] overflow-y-auto'>
+				<DialogContent size='lg'>
 					<DialogHeader>
 						<DialogTitle>Create Pricing Config</DialogTitle>
 						<DialogDescription>
@@ -1001,7 +1001,7 @@ export function PricingConfigsTab({ versionId, onRefresh }: PricingConfigsTabPro
 					if (!open) setSelectedConfig(null);
 				}}
 			>
-				<DialogContent className='max-w-2xl max-h-[90vh] overflow-y-auto'>
+				<DialogContent size='lg'>
 					<DialogHeader>
 						<DialogTitle>Edit Pricing Config</DialogTitle>
 						<DialogDescription>

@@ -435,7 +435,7 @@ export function CityAvailabilityTab() {
 
 			{/* Create/Edit Dialog */}
 			<Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-				<DialogContent>
+				<DialogContent size='lg'>
 					<DialogHeader>
 						<DialogTitle>
 							{editingItem ? 'Edit City Ride Type' : 'Add Ride Type to City'}

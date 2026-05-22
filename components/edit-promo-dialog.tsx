@@ -150,7 +150,7 @@ export function EditPromoDialog({ promo, onSuccess, trigger }: EditPromoDialogPr
 					</Button>
 				)}
 			</DialogTrigger>
-			<DialogContent className='max-w-2xl max-h-[90vh] overflow-y-auto'>
+			<DialogContent size='lg'>
 				<DialogHeader>
 					<DialogTitle>Edit Promo Code</DialogTitle>
 					<DialogDescription>Update the promotional discount code details</DialogDescription>

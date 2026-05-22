@@ -429,7 +429,7 @@ export function PricingVersionsTab({ onRefresh }: PricingVersionsTabProps) {
 
 			{/* Create Dialog */}
 			<Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
-				<DialogContent className='max-w-md'>
+				<DialogContent size='lg'>
 					<DialogHeader>
 						<DialogTitle>Create Version</DialogTitle>
 						<DialogDescription>
@@ -462,7 +462,7 @@ export function PricingVersionsTab({ onRefresh }: PricingVersionsTabProps) {
 					if (!open) setSelectedVersion(null);
 				}}
 			>
-				<DialogContent className='max-w-md'>
+				<DialogContent size='lg'>
 					<DialogHeader>
 						<DialogTitle>Edit Version</DialogTitle>
 						<DialogDescription>

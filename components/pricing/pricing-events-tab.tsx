@@ -463,7 +463,7 @@ export function PricingEventsTab({ versionId, onRefresh }: PricingEventsTabProps
 
 			{/* Create/Edit Dialog */}
 			<Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-				<DialogContent className='max-w-lg'>
+				<DialogContent size='lg'>
 					<DialogHeader>
 						<DialogTitle>
 							{editingItem ? 'Edit Event Multiplier' : 'Add Event Multiplier'}

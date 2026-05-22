@@ -48,17 +48,28 @@ function DialogContent({
   className,
   children,
   showCloseButton = true,
+  size = "default",
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   showCloseButton?: boolean
+  /**
+   * Controls the dialog's max width. `lg`/`xl` also cap the height and scroll
+   * their content, which suits long forms. Defaults to `default` (compact).
+   */
+  size?: "sm" | "default" | "lg" | "xl"
 }) {
   return (
     <DialogPortal>
       <DialogOverlay />
       <DialogPrimitive.Content
         data-slot="dialog-content"
+        data-size={size}
         className={cn(
-          "bg-background data-open:animate-in data-closed:animate-out data-closed:fade-out-0 data-open:fade-in-0 data-closed:zoom-out-95 data-open:zoom-in-95 ring-foreground/10 grid max-w-[calc(100%-2rem)] gap-6 rounded-xl p-6 text-sm ring-1 duration-100 sm:max-w-md fixed top-1/2 left-1/2 z-50 w-full -translate-x-1/2 -translate-y-1/2",
+          "bg-background data-open:animate-in data-closed:animate-out data-closed:fade-out-0 data-open:fade-in-0 data-closed:zoom-out-95 data-open:zoom-in-95 ring-foreground/10 grid max-w-[calc(100%-2rem)] gap-6 rounded-xl p-6 text-sm ring-1 duration-100 fixed top-1/2 left-1/2 z-50 w-full -translate-x-1/2 -translate-y-1/2",
+          // Width by size
+          "data-[size=sm]:sm:max-w-sm data-[size=default]:sm:max-w-md data-[size=lg]:sm:max-w-2xl data-[size=xl]:sm:max-w-4xl",
+          // Larger sizes cap height and scroll long forms
+          "data-[size=lg]:max-h-[90vh] data-[size=lg]:overflow-y-auto data-[size=xl]:max-h-[90vh] data-[size=xl]:overflow-y-auto",
           className
         )}
         {...props}
