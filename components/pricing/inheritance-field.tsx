@@ -18,16 +18,29 @@ interface InheritanceFieldProps {
 	inheritedFrom?: string;
 	sourceLevel?: PricingConfigLevel;
 	type: 'currency' | 'percentage' | 'number' | 'boolean' | 'multiplier';
+	/** ISO currency code for `type='currency'`; falls back to "$" when absent. */
+	currencyCode?: string;
 }
 
 function formatValue(
 	value: number | boolean | null | undefined,
-	type: InheritanceFieldProps['type']
+	type: InheritanceFieldProps['type'],
+	currencyCode?: string
 ): string {
 	if (value === null || value === undefined) return '--';
 	if (typeof value === 'boolean') return value ? 'Yes' : 'No';
 	switch (type) {
 		case 'currency':
+			if (currencyCode) {
+				try {
+					return new Intl.NumberFormat(undefined, {
+						style: 'currency',
+						currency: currencyCode,
+					}).format(value);
+				} catch {
+					return `${currencyCode} ${value.toFixed(2)}`;
+				}
+			}
 			return `$${value.toFixed(2)}`;
 		case 'percentage':
 			return `${value}%`;
@@ -45,6 +58,7 @@ export function InheritanceField({
 	inheritedFrom,
 	sourceLevel,
 	type,
+	currencyCode,
 }: InheritanceFieldProps) {
 	const isExplicitlySet = value !== null && value !== undefined;
 	const hasInheritedValue = inheritedValue !== null && inheritedValue !== undefined;
@@ -55,7 +69,7 @@ export function InheritanceField({
 			<div className='flex items-center gap-2'>
 				{isExplicitlySet ? (
 					<>
-						<span className='text-sm font-medium'>{formatValue(value, type)}</span>
+						<span className='text-sm font-medium'>{formatValue(value, type, currencyCode)}</span>
 						{sourceLevel && (
 							<Badge variant='outline' className={`text-[10px] px-1.5 py-0 ${LEVEL_COLORS[sourceLevel]}`}>
 								{sourceLevel}
@@ -65,7 +79,7 @@ export function InheritanceField({
 				) : hasInheritedValue ? (
 					<>
 						<span className='text-sm text-muted-foreground italic'>
-							{formatValue(inheritedValue, type)}
+							{formatValue(inheritedValue, type, currencyCode)}
 						</span>
 						{inheritedFrom && (
 							<Badge variant='secondary' className='text-[10px] px-1.5 py-0'>

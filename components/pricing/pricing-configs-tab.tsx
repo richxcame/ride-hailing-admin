@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import {
 	IconPlus,
@@ -89,14 +89,28 @@ import {
 import { LocationFilter } from '@/components/pricing/location-filter';
 import { InheritanceField } from '@/components/pricing/inheritance-field';
 import { Country } from '@/lib/types/geography';
+import { geographyService } from '@/lib/api/geography.service';
+import { fetchAllPages } from '@/lib/api/paginate';
 
 interface PricingConfigsTabProps {
 	versionId: string;
 	onRefresh?: () => void;
 }
 
-function formatCurrency(value: number | null | undefined): string {
+// Formats an amount in the given currency. Falls back to a bare "$" only when
+// no currency is known (e.g. a currency-agnostic global config).
+function formatMoney(value: number | null | undefined, currencyCode?: string): string {
 	if (value === null || value === undefined) return '--';
+	if (currencyCode) {
+		try {
+			return new Intl.NumberFormat(undefined, {
+				style: 'currency',
+				currency: currencyCode,
+			}).format(value);
+		} catch {
+			return `${currencyCode} ${value.toFixed(2)}`;
+		}
+	}
 	return `$${value.toFixed(2)}`;
 }
 
@@ -128,16 +142,24 @@ export function PricingConfigsTab({ versionId, onRefresh }: PricingConfigsTabPro
 	const [formZoneId, setFormZoneId] = useState<string | undefined>();
 	const [formIsActive, setFormIsActive] = useState(true);
 	const [formCancellationFees, setFormCancellationFees] = useState<CancellationFee[]>([]);
-	// Countries (loaded by the form's LocationFilter) so fare inputs can be
-	// labelled with the selected country's currency instead of a hardcoded "$".
+	// All countries — used to resolve a config's country name + currency for the
+	// table and detail sheet (loaded on mount, refreshed by the form filter).
 	const [countries, setCountries] = useState<Country[]>([]);
+
+	const countriesById = useMemo(
+		() => new Map(countries.map((c) => [c.id, c] as const)),
+		[countries],
+	);
 
 	// Currency for the config being edited — derived from the selected country.
 	// Empty for a global config (no country), where amounts are currency-agnostic.
-	const formCurrency =
-		countries.find((c) => c.id === formCountryId)?.currency_code ?? '';
+	const formCurrency = countriesById.get(formCountryId ?? '')?.currency_code ?? '';
 	const moneyLabel = (label: string) =>
 		formCurrency ? `${label} (${formCurrency})` : label;
+
+	// A config's currency is its country's currency (empty for global configs).
+	const configCurrency = (config: PricingConfig): string =>
+		countriesById.get(config.country_id ?? '')?.currency_code ?? '';
 
 	// Override fields pattern: { fieldName: { enabled: boolean, value: string } }
 	const [overrides, setOverrides] = useState<
@@ -200,6 +222,18 @@ export function PricingConfigsTab({ versionId, onRefresh }: PricingConfigsTabPro
 	useEffect(() => {
 		fetchVersions();
 	}, [fetchVersions]);
+
+	// Load all countries on mount so the table + detail sheet can show country
+	// names and currencies (not just raw UUIDs / "$").
+	useEffect(() => {
+		let active = true;
+		fetchAllPages((offset, limit) => geographyService.getCountries({ offset, limit }))
+			.then((all) => active && setCountries(all))
+			.catch(() => {});
+		return () => {
+			active = false;
+		};
+	}, []);
 
 	useEffect(() => {
 		fetchConfigs();
@@ -413,7 +447,11 @@ export function PricingConfigsTab({ versionId, onRefresh }: PricingConfigsTabPro
 
 	const getLocationLabel = (config: PricingConfig): string => {
 		const parts: string[] = [];
-		if (config.country_id) parts.push(`Country: ${config.country_id.slice(0, 8)}...`);
+		if (config.country_id) {
+			const c = countriesById.get(config.country_id);
+			parts.push(`Country: ${c ? `${c.name} (${c.code})` : `${config.country_id.slice(0, 8)}...`}`);
+		}
+		// Region/city/zone aren't loaded globally, so fall back to a short id.
 		if (config.region_id) parts.push(`Region: ${config.region_id.slice(0, 8)}...`);
 		if (config.city_id) parts.push(`City: ${config.city_id.slice(0, 8)}...`);
 		if (config.zone_id) parts.push(`Zone: ${config.zone_id.slice(0, 8)}...`);
@@ -457,12 +495,13 @@ export function PricingConfigsTab({ versionId, onRefresh }: PricingConfigsTabPro
 			header: 'Key Rates',
 			cell: ({ row }) => {
 				const config = row.original;
+				const ccy = configCurrency(config);
 				return (
 					<div className='space-y-0.5'>
 						<div className='text-xs'>
 							Base:{' '}
 							{config.base_fare !== null && config.base_fare !== undefined ? (
-								<span className='font-medium'>{formatCurrency(config.base_fare)}</span>
+								<span className='font-medium'>{formatMoney(config.base_fare, ccy)}</span>
 							) : (
 								<span className='text-muted-foreground italic'>Inherited</span>
 							)}
@@ -470,7 +509,7 @@ export function PricingConfigsTab({ versionId, onRefresh }: PricingConfigsTabPro
 						<div className='text-xs'>
 							/km:{' '}
 							{config.per_km_rate !== null && config.per_km_rate !== undefined ? (
-								<span className='font-medium'>{formatCurrency(config.per_km_rate)}</span>
+								<span className='font-medium'>{formatMoney(config.per_km_rate, ccy)}</span>
 							) : (
 								<span className='text-muted-foreground italic'>Inherited</span>
 							)}
@@ -478,7 +517,7 @@ export function PricingConfigsTab({ versionId, onRefresh }: PricingConfigsTabPro
 						<div className='text-xs'>
 							/min:{' '}
 							{config.per_minute_rate !== null && config.per_minute_rate !== undefined ? (
-								<span className='font-medium'>{formatCurrency(config.per_minute_rate)}</span>
+								<span className='font-medium'>{formatMoney(config.per_minute_rate, ccy)}</span>
 							) : (
 								<span className='text-muted-foreground italic'>Inherited</span>
 							)}
@@ -1091,11 +1130,11 @@ export function PricingConfigsTab({ versionId, onRefresh }: PricingConfigsTabPro
 
 							<div className='space-y-1'>
 								<h4 className='text-sm font-medium'>Fare Configuration</h4>
-								<InheritanceField label='Base Fare' value={selectedConfig.base_fare} type='currency' />
-								<InheritanceField label='Per KM Rate' value={selectedConfig.per_km_rate} type='currency' />
-								<InheritanceField label='Per Minute Rate' value={selectedConfig.per_minute_rate} type='currency' />
-								<InheritanceField label='Minimum Fare' value={selectedConfig.minimum_fare} type='currency' />
-								<InheritanceField label='Booking Fee' value={selectedConfig.booking_fee} type='currency' />
+								<InheritanceField label='Base Fare' value={selectedConfig.base_fare} type='currency' currencyCode={configCurrency(selectedConfig)} />
+								<InheritanceField label='Per KM Rate' value={selectedConfig.per_km_rate} type='currency' currencyCode={configCurrency(selectedConfig)} />
+								<InheritanceField label='Per Minute Rate' value={selectedConfig.per_minute_rate} type='currency' currencyCode={configCurrency(selectedConfig)} />
+								<InheritanceField label='Minimum Fare' value={selectedConfig.minimum_fare} type='currency' currencyCode={configCurrency(selectedConfig)} />
+								<InheritanceField label='Booking Fee' value={selectedConfig.booking_fee} type='currency' currencyCode={configCurrency(selectedConfig)} />
 							</div>
 
 							<Separator />
@@ -1126,7 +1165,9 @@ export function PricingConfigsTab({ versionId, onRefresh }: PricingConfigsTabPro
 											<div key={idx} className='flex items-center justify-between text-sm'>
 												<span className='text-muted-foreground'>After {tier.after_minutes} min</span>
 												<span className='font-medium'>
-													{tier.fee_type === 'percentage' ? `${tier.fee}%` : `$${tier.fee.toFixed(2)}`}
+													{tier.fee_type === 'percentage'
+														? `${tier.fee}%`
+														: formatMoney(tier.fee, configCurrency(selectedConfig))}
 													<span className='text-xs text-muted-foreground ml-1'>({tier.fee_type})</span>
 												</span>
 											</div>
