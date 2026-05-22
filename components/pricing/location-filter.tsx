@@ -1,15 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import {
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from '@/components/ui/select';
+import { useEffect, useRef, useState } from 'react';
 import { Label } from '@/components/ui/label';
+import { EntityCombobox } from '@/components/entity-combobox';
 import { geographyService } from '@/lib/api/geography.service';
+import { fetchAllPages } from '@/lib/api/paginate';
 import { Country, Region, City, PricingZone } from '@/lib/types/geography';
 
 interface LocationFilterProps {
@@ -23,6 +18,11 @@ interface LocationFilterProps {
 	onZoneChange?: (id: string | undefined) => void;
 	showZone?: boolean;
 	layout?: 'horizontal' | 'vertical';
+	/**
+	 * Fires once countries have loaded, so a parent can map a country id to its
+	 * currency (e.g. to label fare inputs with the right currency).
+	 */
+	onCountriesLoaded?: (countries: Country[]) => void;
 }
 
 export function LocationFilter({
@@ -36,18 +36,28 @@ export function LocationFilter({
 	onZoneChange,
 	showZone = false,
 	layout = 'horizontal',
+	onCountriesLoaded,
 }: LocationFilterProps) {
 	const [countries, setCountries] = useState<Country[]>([]);
 	const [regions, setRegions] = useState<Region[]>([]);
 	const [cities, setCities] = useState<City[]>([]);
 	const [zones, setZones] = useState<PricingZone[]>([]);
 
-	// Load countries once on mount.
+	// Keep the latest callback without re-running the load effect.
+	const onCountriesLoadedRef = useRef(onCountriesLoaded);
+	useEffect(() => {
+		onCountriesLoadedRef.current = onCountriesLoaded;
+	}, [onCountriesLoaded]);
+
+	// Load every country once on mount (paginate past the 100-per-page cap).
 	useEffect(() => {
 		let active = true;
-		geographyService
-			.getCountries({ limit: 100 })
-			.then((res) => active && setCountries(res.data))
+		fetchAllPages((offset, limit) => geographyService.getCountries({ offset, limit }))
+			.then((all) => {
+				if (!active) return;
+				setCountries(all);
+				onCountriesLoadedRef.current?.(all);
+			})
 			.catch(() => active && setCountries([]));
 		return () => {
 			active = false;
@@ -58,9 +68,8 @@ export function LocationFilter({
 	useEffect(() => {
 		if (!countryId) return;
 		let active = true;
-		geographyService
-			.getRegions(countryId, { limit: 100 })
-			.then((res) => active && setRegions(res.data))
+		fetchAllPages((offset, limit) => geographyService.getRegions(countryId, { offset, limit }))
+			.then((all) => active && setRegions(all))
 			.catch(() => active && setRegions([]));
 		return () => {
 			active = false;
@@ -71,9 +80,8 @@ export function LocationFilter({
 	useEffect(() => {
 		if (!regionId) return;
 		let active = true;
-		geographyService
-			.getCities(regionId, { limit: 100 })
-			.then((res) => active && setCities(res.data))
+		fetchAllPages((offset, limit) => geographyService.getCities(regionId, { offset, limit }))
+			.then((all) => active && setCities(all))
 			.catch(() => active && setCities([]));
 		return () => {
 			active = false;
@@ -84,9 +92,8 @@ export function LocationFilter({
 	useEffect(() => {
 		if (!cityId || !showZone) return;
 		let active = true;
-		geographyService
-			.getZones(cityId, { limit: 100 })
-			.then((res) => active && setZones(res.data))
+		fetchAllPages((offset, limit) => geographyService.getZones(cityId, { offset, limit }))
+			.then((all) => active && setZones(all))
 			.catch(() => active && setZones([]));
 		return () => {
 			active = false;
@@ -99,117 +106,79 @@ export function LocationFilter({
 	const visibleCities = regionId ? cities : [];
 	const visibleZones = cityId && showZone ? zones : [];
 
-	const handleCountryChange = (value: string) => {
-		const val = value === 'all' ? undefined : value;
-		onCountryChange(val);
+	const handleCountryChange = (id: string) => {
+		onCountryChange(id || undefined);
 		onRegionChange(undefined);
 		onCityChange(undefined);
 		onZoneChange?.(undefined);
 	};
 
-	const handleRegionChange = (value: string) => {
-		const val = value === 'all' ? undefined : value;
-		onRegionChange(val);
+	const handleRegionChange = (id: string) => {
+		onRegionChange(id || undefined);
 		onCityChange(undefined);
 		onZoneChange?.(undefined);
 	};
 
-	const handleCityChange = (value: string) => {
-		const val = value === 'all' ? undefined : value;
-		onCityChange(val);
+	const handleCityChange = (id: string) => {
+		onCityChange(id || undefined);
 		onZoneChange?.(undefined);
 	};
 
-	const handleZoneChange = (value: string) => {
-		onZoneChange?.(value === 'all' ? undefined : value);
-	};
-
 	const containerClass =
-		layout === 'horizontal'
-			? 'flex flex-wrap items-end gap-3'
-			: 'grid gap-3';
+		layout === 'horizontal' ? 'flex flex-wrap items-end gap-3' : 'grid gap-3';
 
 	return (
 		<div className={containerClass}>
 			<div className='space-y-1.5'>
 				<Label className='text-xs text-muted-foreground'>Country</Label>
-				<Select value={countryId || 'all'} onValueChange={handleCountryChange}>
-					<SelectTrigger className='w-[160px]'>
-						<SelectValue placeholder='All Countries' />
-					</SelectTrigger>
-					<SelectContent>
-						<SelectItem value='all'>All Countries</SelectItem>
-						{countries.map((c) => (
-							<SelectItem key={c.id} value={c.id}>
-								{c.name} ({c.code})
-							</SelectItem>
-						))}
-					</SelectContent>
-				</Select>
+				<EntityCombobox
+					items={countries.map((c) => ({ id: c.id, label: `${c.name} (${c.code})` }))}
+					value={countryId ?? ''}
+					onChange={handleCountryChange}
+					placeholder='All countries'
+					emptyMessage='No countries found'
+					className='w-52'
+				/>
 			</div>
 
 			<div className='space-y-1.5'>
 				<Label className='text-xs text-muted-foreground'>Region</Label>
-				<Select
-					value={regionId || 'all'}
-					onValueChange={handleRegionChange}
+				<EntityCombobox
+					items={visibleRegions.map((r) => ({ id: r.id, label: r.name }))}
+					value={regionId ?? ''}
+					onChange={handleRegionChange}
+					placeholder='All regions'
+					emptyMessage='No regions found'
 					disabled={!countryId}
-				>
-					<SelectTrigger className='w-[160px]'>
-						<SelectValue placeholder='All Regions' />
-					</SelectTrigger>
-					<SelectContent>
-						<SelectItem value='all'>All Regions</SelectItem>
-						{visibleRegions.map((r) => (
-							<SelectItem key={r.id} value={r.id}>
-								{r.name}
-							</SelectItem>
-						))}
-					</SelectContent>
-				</Select>
+					className='w-52'
+				/>
 			</div>
 
 			<div className='space-y-1.5'>
 				<Label className='text-xs text-muted-foreground'>City</Label>
-				<Select
-					value={cityId || 'all'}
-					onValueChange={handleCityChange}
+				<EntityCombobox
+					items={visibleCities.map((c) => ({ id: c.id, label: c.name }))}
+					value={cityId ?? ''}
+					onChange={handleCityChange}
+					placeholder='All cities'
+					emptyMessage='No cities found'
 					disabled={!regionId}
-				>
-					<SelectTrigger className='w-[160px]'>
-						<SelectValue placeholder='All Cities' />
-					</SelectTrigger>
-					<SelectContent>
-						<SelectItem value='all'>All Cities</SelectItem>
-						{visibleCities.map((c) => (
-							<SelectItem key={c.id} value={c.id}>
-								{c.name}
-							</SelectItem>
-						))}
-					</SelectContent>
-				</Select>
+					className='w-52'
+				/>
 			</div>
 
 			{showZone && (
 				<div className='space-y-1.5'>
 					<Label className='text-xs text-muted-foreground'>Zone</Label>
-					<Select
-						value={zoneId || 'all'}
-						onValueChange={handleZoneChange}
+					<EntityCombobox
+						items={visibleZones.map((z) => ({ id: z.id, label: z.name }))}
+						value={zoneId ?? ''}
+						onChange={(id) => onZoneChange?.(id || undefined)}
+						placeholder='All zones'
+						emptyMessage='No zones found'
 						disabled={!cityId}
-					>
-						<SelectTrigger className='w-[160px]'>
-							<SelectValue placeholder='All Zones' />
-						</SelectTrigger>
-						<SelectContent>
-							<SelectItem value='all'>All Zones</SelectItem>
-							{visibleZones.map((z) => (
-								<SelectItem key={z.id} value={z.id}>
-									{z.name}
-								</SelectItem>
-							))}
-						</SelectContent>
-					</Select>
+						className='w-52'
+					/>
 				</div>
 			)}
 		</div>

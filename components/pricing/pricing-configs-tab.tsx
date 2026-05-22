@@ -88,6 +88,7 @@ import {
 } from '@/components/ui/sheet';
 import { LocationFilter } from '@/components/pricing/location-filter';
 import { InheritanceField } from '@/components/pricing/inheritance-field';
+import { Country } from '@/lib/types/geography';
 
 interface PricingConfigsTabProps {
 	versionId: string;
@@ -127,6 +128,16 @@ export function PricingConfigsTab({ versionId, onRefresh }: PricingConfigsTabPro
 	const [formZoneId, setFormZoneId] = useState<string | undefined>();
 	const [formIsActive, setFormIsActive] = useState(true);
 	const [formCancellationFees, setFormCancellationFees] = useState<CancellationFee[]>([]);
+	// Countries (loaded by the form's LocationFilter) so fare inputs can be
+	// labelled with the selected country's currency instead of a hardcoded "$".
+	const [countries, setCountries] = useState<Country[]>([]);
+
+	// Currency for the config being edited — derived from the selected country.
+	// Empty for a global config (no country), where amounts are currency-agnostic.
+	const formCurrency =
+		countries.find((c) => c.id === formCountryId)?.currency_code ?? '';
+	const moneyLabel = (label: string) =>
+		formCurrency ? `${label} (${formCurrency})` : label;
 
 	// Override fields pattern: { fieldName: { enabled: boolean, value: string } }
 	const [overrides, setOverrides] = useState<
@@ -648,6 +659,7 @@ export function PricingConfigsTab({ versionId, onRefresh }: PricingConfigsTabPro
 					onRegionChange={setFormRegionId}
 					onCityChange={setFormCityId}
 					onZoneChange={setFormZoneId}
+					onCountriesLoaded={setCountries}
 					showZone
 					layout='horizontal'
 				/>
@@ -665,11 +677,11 @@ export function PricingConfigsTab({ versionId, onRefresh }: PricingConfigsTabPro
 					Check the box to override a field. Unchecked fields inherit from the parent level.
 				</p>
 				<div className='grid gap-3 sm:grid-cols-2'>
-					{renderOverrideField('base_fare', 'Base Fare ($)')}
-					{renderOverrideField('per_km_rate', 'Per KM Rate ($)')}
-					{renderOverrideField('per_minute_rate', 'Per Minute Rate ($)')}
-					{renderOverrideField('minimum_fare', 'Minimum Fare ($)')}
-					{renderOverrideField('booking_fee', 'Booking Fee ($)')}
+					{renderOverrideField('base_fare', moneyLabel('Base Fare'))}
+					{renderOverrideField('per_km_rate', moneyLabel('Per KM Rate'))}
+					{renderOverrideField('per_minute_rate', moneyLabel('Per Minute Rate'))}
+					{renderOverrideField('minimum_fare', moneyLabel('Minimum Fare'))}
+					{renderOverrideField('booking_fee', moneyLabel('Booking Fee'))}
 				</div>
 			</div>
 
