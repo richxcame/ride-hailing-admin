@@ -1,10 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { IconSearch } from '@tabler/icons-react';
 import { pricingService } from '@/lib/api/pricing.service';
 import { PricingPreviewResult } from '@/lib/types/pricing';
+import { geographyService } from '@/lib/api/geography.service';
+import { fetchAllPages } from '@/lib/api/paginate';
+import { Country } from '@/lib/types/geography';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -25,6 +28,24 @@ export function PricingPreviewTool() {
 	const [rideTypeId, setRideTypeId] = useState<string | undefined>();
 	const [result, setResult] = useState<PricingPreviewResult | null>(null);
 	const [isLoading, setIsLoading] = useState(false);
+	const [countries, setCountries] = useState<Country[]>([]);
+
+	// Resolve the resolved location's country currency so amounts aren't shown
+	// in a hardcoded "$".
+	useEffect(() => {
+		let active = true;
+		fetchAllPages((offset, limit) => geographyService.getCountries({ offset, limit }))
+			.then((all) => active && setCountries(all))
+			.catch(() => {});
+		return () => {
+			active = false;
+		};
+	}, []);
+
+	const currency = useMemo(
+		() => countries.find((c) => c.id === result?.country_id)?.currency_code ?? '',
+		[countries, result?.country_id],
+	);
 
 	const handlePreview = async () => {
 		if (!latitude || !longitude) {
@@ -79,7 +100,19 @@ export function PricingPreviewTool() {
 		}
 	};
 
-	const formatCurrency = (value: number) => `$${value.toFixed(2)}`;
+	const formatCurrency = (value: number) => {
+		if (currency) {
+			try {
+				return new Intl.NumberFormat(undefined, {
+					style: 'currency',
+					currency,
+				}).format(value);
+			} catch {
+				return `${currency} ${value.toFixed(2)}`;
+			}
+		}
+		return `$${value.toFixed(2)}`;
+	};
 
 	return (
 		<div className='space-y-4'>

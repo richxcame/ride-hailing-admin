@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import {
 	ColumnDef,
 	SortingState,
@@ -236,8 +236,8 @@ export function PricingAuditLogsTab() {
 							<TableBody>
 								{table.getRowModel().rows?.length ? (
 									table.getRowModel().rows.map((row) => (
-										<>
-											<TableRow key={row.id}>
+										<Fragment key={row.id}>
+											<TableRow>
 												{row.getVisibleCells().map((cell) => (
 													<TableCell key={cell.id}>
 														{flexRender(
@@ -271,7 +271,7 @@ export function PricingAuditLogsTab() {
 													</TableCell>
 												</TableRow>
 											)}
-										</>
+										</Fragment>
 									))
 								) : (
 									<TableRow>
