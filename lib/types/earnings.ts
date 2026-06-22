@@ -17,6 +17,9 @@ export interface DriverEarningsSummary {
 	tips_received: number;
 	bonuses_earned: number;
 	current_balance: number;
+	// ISO 4217 currency for this driver's amounts (driver wallets are
+	// single-currency). Optional until the admin summary query selects it.
+	currency?: string;
 }
 
 // Payout record
@@ -24,6 +27,8 @@ export interface Payout {
 	id: string;
 	driver_id: string;
 	amount: number;
+	// ISO 4217 currency the payout is denominated in (returned by the backend).
+	currency?: string;
 	method: PayoutMethod;
 	status: PayoutStatus;
 	reference?: string;
@@ -49,6 +54,7 @@ export interface RideEarning {
 	tip_amount: number;
 	bonus_amount: number;
 	net_earning: number;
+	currency?: string;
 	created_at: string;
 }
 

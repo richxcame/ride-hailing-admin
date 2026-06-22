@@ -73,13 +73,18 @@ import {
 
 // ==================== Helpers ====================
 
-const formatMoney = (value: number): string => {
-	return new Intl.NumberFormat('en-US', {
-		style: 'currency',
-		currency: 'USD',
-		minimumFractionDigits: 2,
-		maximumFractionDigits: 2,
-	}).format(value);
+const formatMoney = (value: number, currency = 'USD'): string => {
+	try {
+		return new Intl.NumberFormat('en-US', {
+			style: 'currency',
+			currency: currency || 'USD',
+			minimumFractionDigits: 2,
+			maximumFractionDigits: 2,
+		}).format(value);
+	} catch {
+		// Intl throws on unknown codes — fall back to a readable "TMT 50.00".
+		return `${currency} ${value.toFixed(2)}`;
+	}
 };
 
 const formatDate = (dateStr?: string): string => {
@@ -391,7 +396,7 @@ export default function EarningsPage() {
 				notes: processData.notes || undefined,
 			});
 			toast.success('Payout is now processing', {
-				description: `${formatMoney(payoutToProcess.amount)} for ${payoutToProcess.driver_name || 'driver'}`,
+				description: `${formatMoney(payoutToProcess.amount, payoutToProcess.currency)} for ${payoutToProcess.driver_name || 'driver'}`,
 			});
 			setProcessDialogOpen(false);
 			setPayoutToProcess(null);
@@ -426,7 +431,7 @@ export default function EarningsPage() {
 				reference: completeData.reference || undefined,
 			});
 			toast.success('Payout completed', {
-				description: `${formatMoney(payoutToComplete.amount)} for ${payoutToComplete.driver_name || 'driver'}`,
+				description: `${formatMoney(payoutToComplete.amount, payoutToComplete.currency)} for ${payoutToComplete.driver_name || 'driver'}`,
 			});
 			setCompleteDialogOpen(false);
 			setPayoutToComplete(null);
@@ -465,7 +470,7 @@ export default function EarningsPage() {
 				reason: failData.reason,
 			});
 			toast.success('Payout marked as failed', {
-				description: `${formatMoney(payoutToFail.amount)} for ${payoutToFail.driver_name || 'driver'}`,
+				description: `${formatMoney(payoutToFail.amount, payoutToFail.currency)} for ${payoutToFail.driver_name || 'driver'}`,
 			});
 			setFailDialogOpen(false);
 			setPayoutToFail(null);
@@ -501,7 +506,7 @@ export default function EarningsPage() {
 				notes: holdData.notes || undefined,
 			});
 			toast.success('Payout put on hold', {
-				description: `${formatMoney(payoutToHold.amount)} for ${payoutToHold.driver_name || 'driver'}`,
+				description: `${formatMoney(payoutToHold.amount, payoutToHold.currency)} for ${payoutToHold.driver_name || 'driver'}`,
 			});
 			setHoldDialogOpen(false);
 			setPayoutToHold(null);
@@ -545,7 +550,7 @@ export default function EarningsPage() {
 				header: 'Total Earnings',
 				cell: ({ row }) => (
 					<span className='text-sm font-medium'>
-						{formatMoney(row.original.total_earnings)}
+						{formatMoney(row.original.total_earnings, row.original.currency)}
 					</span>
 				),
 			},
@@ -554,7 +559,7 @@ export default function EarningsPage() {
 				header: 'Pending Payout',
 				cell: ({ row }) => (
 					<span className='text-sm font-medium text-orange-600'>
-						{formatMoney(row.original.pending_payout)}
+						{formatMoney(row.original.pending_payout, row.original.currency)}
 					</span>
 				),
 			},
@@ -563,7 +568,7 @@ export default function EarningsPage() {
 				header: 'Commission',
 				cell: ({ row }) => (
 					<span className='text-sm'>
-						{formatMoney(row.original.commission_paid)}
+						{formatMoney(row.original.commission_paid, row.original.currency)}
 					</span>
 				),
 			},
@@ -572,7 +577,7 @@ export default function EarningsPage() {
 				header: 'Tips',
 				cell: ({ row }) => (
 					<span className='text-sm'>
-						{formatMoney(row.original.tips_received)}
+						{formatMoney(row.original.tips_received, row.original.currency)}
 					</span>
 				),
 			},
@@ -581,7 +586,7 @@ export default function EarningsPage() {
 				header: 'Balance',
 				cell: ({ row }) => (
 					<span className='text-sm font-medium'>
-						{formatMoney(row.original.current_balance)}
+						{formatMoney(row.original.current_balance, row.original.currency)}
 					</span>
 				),
 			},
@@ -632,7 +637,7 @@ export default function EarningsPage() {
 				header: 'Amount',
 				cell: ({ row }) => (
 					<span className='text-sm font-medium'>
-						{formatMoney(row.original.amount)}
+						{formatMoney(row.original.amount, row.original.currency)}
 					</span>
 				),
 			},
@@ -1439,7 +1444,7 @@ export default function EarningsPage() {
 						</div>
 						<div className='grid gap-2'>
 							<Label htmlFor='payout-amount'>
-								Amount ($){' '}
+								Amount{' '}
 								<span className='text-destructive'>*</span>
 							</Label>
 							<Input
@@ -1546,7 +1551,7 @@ export default function EarningsPage() {
 						<DialogDescription>
 							Begin processing payout of{' '}
 							<span className='font-medium'>
-								{formatMoney(payoutToProcess?.amount || 0)}
+								{formatMoney(payoutToProcess?.amount || 0, payoutToProcess?.currency)}
 							</span>{' '}
 							for{' '}
 							<span className='font-medium'>
@@ -1623,7 +1628,7 @@ export default function EarningsPage() {
 						<DialogDescription>
 							Mark payout of{' '}
 							<span className='font-medium'>
-								{formatMoney(payoutToComplete?.amount || 0)}
+								{formatMoney(payoutToComplete?.amount || 0, payoutToComplete?.currency)}
 							</span>{' '}
 							as completed for{' '}
 							<span className='font-medium'>
@@ -1681,7 +1686,7 @@ export default function EarningsPage() {
 						<DialogDescription>
 							Mark payout of{' '}
 							<span className='font-medium'>
-								{formatMoney(payoutToFail?.amount || 0)}
+								{formatMoney(payoutToFail?.amount || 0, payoutToFail?.currency)}
 							</span>{' '}
 							as failed for{' '}
 							<span className='font-medium'>
@@ -1739,7 +1744,7 @@ export default function EarningsPage() {
 						<DialogDescription>
 							Put payout of{' '}
 							<span className='font-medium'>
-								{formatMoney(payoutToHold?.amount || 0)}
+								{formatMoney(payoutToHold?.amount || 0, payoutToHold?.currency)}
 							</span>{' '}
 							on hold for{' '}
 							<span className='font-medium'>
