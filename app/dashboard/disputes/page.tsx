@@ -2,6 +2,9 @@
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { toast } from 'sonner';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import {
 	IconRefresh,
 	IconGavel,
@@ -279,6 +282,13 @@ function createColumns(
 
 // ==================== Main Page Component ====================
 
+const resolveSchema = z.object({
+	resolution_notes: z.string().trim().min(1, 'Resolution notes are required'),
+	refund_amount: z.string(),
+	credit_amount: z.string(),
+});
+type ResolveFormValues = z.infer<typeof resolveSchema>;
+
 export default function DisputesPage() {
 	// Data state
 	const [disputes, setDisputes] = useState<Dispute[]>([]);
@@ -307,10 +317,10 @@ export default function DisputesPage() {
 	// Resolve dialog state
 	const [isResolveDialogOpen, setIsResolveDialogOpen] = useState(false);
 	const [resolveResolutionType, setResolveResolutionType] = useState<DisputeResolutionType>('no_action');
-	const [resolveNotes, setResolveNotes] = useState('');
-	const [resolveRefundAmount, setResolveRefundAmount] = useState('');
-	const [resolveCreditAmount, setResolveCreditAmount] = useState('');
-	const [isResolving, setIsResolving] = useState(false);
+	const resolveForm = useForm<ResolveFormValues>({
+		resolver: zodResolver(resolveSchema),
+		defaultValues: { resolution_notes: '', refund_amount: '', credit_amount: '' },
+	});
 
 	// Reject dialog state
 	const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
@@ -410,9 +420,7 @@ export default function DisputesPage() {
 
 			if (action === 'resolve') {
 				setResolveResolutionType('no_action');
-				setResolveNotes('');
-				setResolveRefundAmount('');
-				setResolveCreditAmount('');
+				resolveForm.reset({ resolution_notes: '', refund_amount: '', credit_amount: '' });
 				setIsResolveDialogOpen(true);
 			} else if (action === 'reject') {
 				setRejectReason('');
@@ -422,7 +430,7 @@ export default function DisputesPage() {
 				setIsEscalateDialogOpen(true);
 			}
 		},
-		[disputes, fetchDisputes],
+		[disputes, fetchDisputes, resolveForm],
 	);
 
 	const columns = useMemo(() => createColumns(handleAction), [handleAction]);
@@ -445,30 +453,24 @@ export default function DisputesPage() {
 
 	// ==================== Actions ====================
 
-	const handleResolveSubmit = async () => {
+	const onResolveSubmit = async (values: ResolveFormValues) => {
 		if (!selectedDispute) return;
 
-		if (!resolveNotes.trim()) {
-			toast.error('Please provide resolution notes');
-			return;
-		}
-
 		try {
-			setIsResolving(true);
 			const data: ResolveDisputeRequest = {
 				resolution_type: resolveResolutionType,
-				resolution_notes: resolveNotes,
+				resolution_notes: values.resolution_notes.trim(),
 			};
 
 			if (
 				(resolveResolutionType === 'full_refund' || resolveResolutionType === 'partial_refund') &&
-				resolveRefundAmount
+				values.refund_amount
 			) {
-				data.refund_amount = parseFloat(resolveRefundAmount);
+				data.refund_amount = parseFloat(values.refund_amount);
 			}
 
-			if (resolveResolutionType === 'credit' && resolveCreditAmount) {
-				data.credit_amount = parseFloat(resolveCreditAmount);
+			if (resolveResolutionType === 'credit' && values.credit_amount) {
+				data.credit_amount = parseFloat(values.credit_amount);
 			}
 
 			await supportService.resolveDispute(selectedDispute.id, data);
@@ -480,8 +482,6 @@ export default function DisputesPage() {
 		} catch (error) {
 			const errorMessage = error instanceof Error ? error.message : 'Failed to resolve dispute';
 			toast.error('Failed to resolve dispute', { description: errorMessage });
-		} finally {
-			setIsResolving(false);
 		}
 	};
 
@@ -928,9 +928,7 @@ export default function DisputesPage() {
 											size='sm'
 											onClick={() => {
 												setResolveResolutionType('no_action');
-												setResolveNotes('');
-												setResolveRefundAmount('');
-												setResolveCreditAmount('');
+												resolveForm.reset({ resolution_notes: '', refund_amount: '', credit_amount: '' });
 												setIsResolveDialogOpen(true);
 											}}
 										>
@@ -981,84 +979,90 @@ export default function DisputesPage() {
 						</DialogDescription>
 					</DialogHeader>
 
-					<div className='space-y-4'>
-						<div className='space-y-2'>
-							<Label htmlFor='resolution-type'>Resolution Type</Label>
-							<Select
-								value={resolveResolutionType}
-								onValueChange={(value) => setResolveResolutionType(value as DisputeResolutionType)}
+					<form onSubmit={resolveForm.handleSubmit(onResolveSubmit)}>
+						<div className='space-y-4'>
+							<div className='space-y-2'>
+								<Label htmlFor='resolution-type'>Resolution Type</Label>
+								<Select
+									value={resolveResolutionType}
+									onValueChange={(value) => setResolveResolutionType(value as DisputeResolutionType)}
+								>
+									<SelectTrigger id='resolution-type'>
+										<SelectValue placeholder='Select resolution type' />
+									</SelectTrigger>
+									<SelectContent>
+										<SelectItem value='full_refund'>Full Refund</SelectItem>
+										<SelectItem value='partial_refund'>Partial Refund</SelectItem>
+										<SelectItem value='credit'>Account Credit</SelectItem>
+										<SelectItem value='no_action'>No Action</SelectItem>
+										<SelectItem value='driver_penalty'>Driver Penalty</SelectItem>
+									</SelectContent>
+								</Select>
+							</div>
+
+							{(resolveResolutionType === 'full_refund' || resolveResolutionType === 'partial_refund') && (
+								<div className='space-y-2'>
+									<Label htmlFor='refund-amount'>Refund Amount ($)</Label>
+									<Input
+										id='refund-amount'
+										type='number'
+										step='0.01'
+										min='0'
+										placeholder='0.00'
+										{...resolveForm.register('refund_amount')}
+									/>
+								</div>
+							)}
+
+							{resolveResolutionType === 'credit' && (
+								<div className='space-y-2'>
+									<Label htmlFor='credit-amount'>Credit Amount ($)</Label>
+									<Input
+										id='credit-amount'
+										type='number'
+										step='0.01'
+										min='0'
+										placeholder='0.00'
+										{...resolveForm.register('credit_amount')}
+									/>
+								</div>
+							)}
+
+							<div className='space-y-2'>
+								<Label htmlFor='resolution-notes'>Resolution Notes</Label>
+								<Textarea
+									id='resolution-notes'
+									placeholder='Provide details about the resolution...'
+									rows={3}
+									aria-invalid={!!resolveForm.formState.errors.resolution_notes}
+									{...resolveForm.register('resolution_notes')}
+								/>
+								{resolveForm.formState.errors.resolution_notes && (
+									<p className='text-xs text-destructive'>
+										{resolveForm.formState.errors.resolution_notes.message}
+									</p>
+								)}
+							</div>
+						</div>
+
+						<DialogFooter>
+							<Button
+								type='button'
+								variant='outline'
+								onClick={() => setIsResolveDialogOpen(false)}
+								disabled={resolveForm.formState.isSubmitting}
 							>
-								<SelectTrigger id='resolution-type'>
-									<SelectValue placeholder='Select resolution type' />
-								</SelectTrigger>
-								<SelectContent>
-									<SelectItem value='full_refund'>Full Refund</SelectItem>
-									<SelectItem value='partial_refund'>Partial Refund</SelectItem>
-									<SelectItem value='credit'>Account Credit</SelectItem>
-									<SelectItem value='no_action'>No Action</SelectItem>
-									<SelectItem value='driver_penalty'>Driver Penalty</SelectItem>
-								</SelectContent>
-							</Select>
-						</div>
-
-						{(resolveResolutionType === 'full_refund' || resolveResolutionType === 'partial_refund') && (
-							<div className='space-y-2'>
-								<Label htmlFor='refund-amount'>Refund Amount ($)</Label>
-								<Input
-									id='refund-amount'
-									type='number'
-									step='0.01'
-									min='0'
-									placeholder='0.00'
-									value={resolveRefundAmount}
-									onChange={(e) => setResolveRefundAmount(e.target.value)}
-								/>
-							</div>
-						)}
-
-						{resolveResolutionType === 'credit' && (
-							<div className='space-y-2'>
-								<Label htmlFor='credit-amount'>Credit Amount ($)</Label>
-								<Input
-									id='credit-amount'
-									type='number'
-									step='0.01'
-									min='0'
-									placeholder='0.00'
-									value={resolveCreditAmount}
-									onChange={(e) => setResolveCreditAmount(e.target.value)}
-								/>
-							</div>
-						)}
-
-						<div className='space-y-2'>
-							<Label htmlFor='resolution-notes'>Resolution Notes</Label>
-							<Textarea
-								id='resolution-notes'
-								placeholder='Provide details about the resolution...'
-								value={resolveNotes}
-								onChange={(e) => setResolveNotes(e.target.value)}
-								rows={3}
-							/>
-						</div>
-					</div>
-
-					<DialogFooter>
-						<Button
-							variant='outline'
-							onClick={() => setIsResolveDialogOpen(false)}
-							disabled={isResolving}
-						>
-							Cancel
-						</Button>
-						<Button
-							onClick={handleResolveSubmit}
-							disabled={isResolving || !resolveNotes.trim()}
-							className='bg-green-600 text-white hover:bg-green-700'
-						>
-							{isResolving ? 'Resolving...' : 'Resolve Dispute'}
-						</Button>
-					</DialogFooter>
+								Cancel
+							</Button>
+							<Button
+								type='submit'
+								disabled={resolveForm.formState.isSubmitting}
+								className='bg-green-600 text-white hover:bg-green-700'
+							>
+								{resolveForm.formState.isSubmitting ? 'Resolving...' : 'Resolve Dispute'}
+							</Button>
+						</DialogFooter>
+					</form>
 				</DialogContent>
 			</Dialog>
 
