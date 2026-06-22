@@ -2,6 +2,9 @@
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { toast } from 'sonner';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import {
 	IconRefresh,
 	IconCheck,
@@ -415,6 +418,17 @@ function createAllDocsColumns(
 
 // ==================== Main Page Component ====================
 
+const reviewSchema = z
+	.object({
+		action: z.enum(['approve', 'reject']),
+		rejection_reason: z.string(),
+	})
+	.refine((d) => d.action !== 'reject' || d.rejection_reason.trim().length > 0, {
+		message: 'Please provide a reason for rejection',
+		path: ['rejection_reason'],
+	});
+type ReviewFormValues = z.infer<typeof reviewSchema>;
+
 export default function DocumentsPage() {
 	const [activeTab, setActiveTab] = useState('pending');
 
@@ -459,14 +473,14 @@ export default function DocumentsPage() {
 
 	// Review dialog state
 	const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
-	const [reviewAction, setReviewAction] = useState<'approve' | 'reject'>(
-		'approve',
-	);
 	const [reviewDocument, setReviewDocument] = useState<DriverDocument | null>(
 		null,
 	);
-	const [rejectionReason, setRejectionReason] = useState('');
-	const [isSubmittingReview, setIsSubmittingReview] = useState(false);
+	const reviewForm = useForm<ReviewFormValues>({
+		resolver: zodResolver(reviewSchema),
+		defaultValues: { action: 'approve', rejection_reason: '' },
+	});
+	const reviewAction = reviewForm.watch('action');
 
 	// ==================== Data Fetching ====================
 
@@ -598,42 +612,34 @@ export default function DocumentsPage() {
 	const handleOpenReview = useCallback(
 		(doc: DriverDocument, action: 'approve' | 'reject') => {
 			setReviewDocument(doc);
-			setReviewAction(action);
-			setRejectionReason('');
+			reviewForm.reset({ action, rejection_reason: '' });
 			setReviewDialogOpen(true);
 		},
-		[],
+		[reviewForm],
 	);
 
-	const handleSubmitReview = async () => {
+	const onSubmitReview = async (values: ReviewFormValues) => {
 		if (!reviewDocument) return;
 
-		if (reviewAction === 'reject' && !rejectionReason.trim()) {
-			toast.error('Please provide a reason for rejection');
-			return;
-		}
-
 		try {
-			setIsSubmittingReview(true);
 			const data: ReviewDocumentRequest = {
-				status: reviewAction === 'approve' ? 'approved' : 'rejected',
+				status: values.action === 'approve' ? 'approved' : 'rejected',
 			};
-			if (reviewAction === 'reject') {
-				data.rejection_reason = rejectionReason;
+			if (values.action === 'reject') {
+				data.rejection_reason = values.rejection_reason.trim();
 			}
 
 			await documentsService.reviewDocument(reviewDocument.id, data);
 			toast.success(
-				reviewAction === 'approve'
+				values.action === 'approve'
 					? 'Document approved successfully'
 					: 'Document rejected',
 				{
-					description: `${documentTypeLabels[reviewDocument.type]} for ${reviewDocument.driver_name || 'Unknown Driver'} has been ${reviewAction === 'approve' ? 'approved' : 'rejected'}.`,
+					description: `${documentTypeLabels[reviewDocument.type]} for ${reviewDocument.driver_name || 'Unknown Driver'} has been ${values.action === 'approve' ? 'approved' : 'rejected'}.`,
 				},
 			);
 			setReviewDialogOpen(false);
 			setReviewDocument(null);
-			setRejectionReason('');
 
 			// Refresh data
 			fetchPendingDocs();
@@ -647,8 +653,6 @@ export default function DocumentsPage() {
 			toast.error('Failed to review document', {
 				description: errorMessage,
 			});
-		} finally {
-			setIsSubmittingReview(false);
 		}
 	};
 
@@ -1247,12 +1251,15 @@ export default function DocumentsPage() {
 									<Textarea
 										id='rejection-reason'
 										placeholder='Enter the reason for rejecting this document...'
-										value={rejectionReason}
-										onChange={(e) =>
-											setRejectionReason(e.target.value)
-										}
 										rows={3}
+										aria-invalid={!!reviewForm.formState.errors.rejection_reason}
+										{...reviewForm.register('rejection_reason')}
 									/>
+									{reviewForm.formState.errors.rejection_reason && (
+										<p className='text-xs text-destructive'>
+											{reviewForm.formState.errors.rejection_reason.message}
+										</p>
+									)}
 								</div>
 							)}
 						</div>
@@ -1262,30 +1269,27 @@ export default function DocumentsPage() {
 						<Button
 							variant='outline'
 							onClick={() => setReviewDialogOpen(false)}
-							disabled={isSubmittingReview}
+							disabled={reviewForm.formState.isSubmitting}
 						>
 							Cancel
 						</Button>
 						{reviewAction === 'approve' ? (
 							<Button
-								onClick={handleSubmitReview}
-								disabled={isSubmittingReview}
+								onClick={reviewForm.handleSubmit(onSubmitReview)}
+								disabled={reviewForm.formState.isSubmitting}
 								className='bg-green-600 text-white hover:bg-green-700'
 							>
-								{isSubmittingReview
+								{reviewForm.formState.isSubmitting
 									? 'Approving...'
 									: 'Approve Document'}
 							</Button>
 						) : (
 							<Button
 								variant='destructive'
-								onClick={handleSubmitReview}
-								disabled={
-									isSubmittingReview ||
-									!rejectionReason.trim()
-								}
+								onClick={reviewForm.handleSubmit(onSubmitReview)}
+								disabled={reviewForm.formState.isSubmitting}
 							>
-								{isSubmittingReview
+								{reviewForm.formState.isSubmitting
 									? 'Rejecting...'
 									: 'Reject Document'}
 							</Button>
