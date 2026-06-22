@@ -2,6 +2,9 @@
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { toast } from 'sonner';
+import { Controller, useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import {
 	IconBell,
 	IconPlus,
@@ -290,6 +293,49 @@ function TemplateActionCell({
 
 // ==================== Main Page ====================
 
+const campaignSchema = z.object({
+	name: z.string().trim().min(1, 'Name is required'),
+	title: z.string().trim().min(1, 'Title is required'),
+	message: z.string().trim().min(1, 'Message is required'),
+	channel: z.enum(['push', 'sms', 'email']),
+	audience: z.enum([
+		'all_riders',
+		'all_drivers',
+		'active_riders',
+		'active_drivers',
+		'inactive_users',
+		'custom',
+	]),
+	scheduled_at: z.string(),
+});
+type CampaignFormValues = z.infer<typeof campaignSchema>;
+
+const CAMPAIGN_DEFAULTS: CampaignFormValues = {
+	name: '',
+	title: '',
+	message: '',
+	channel: 'push',
+	audience: 'all_riders',
+	scheduled_at: '',
+};
+
+const templateSchema = z.object({
+	name: z.string().trim().min(1, 'Name is required'),
+	title: z.string().trim().min(1, 'Title is required'),
+	message: z.string().trim().min(1, 'Message is required'),
+	channel: z.enum(['push', 'sms', 'email']),
+	is_active: z.boolean(),
+});
+type TemplateFormValues = z.infer<typeof templateSchema>;
+
+const TEMPLATE_DEFAULTS: TemplateFormValues = {
+	name: '',
+	title: '',
+	message: '',
+	channel: 'push',
+	is_active: true,
+};
+
 export default function NotificationsPage() {
 	// === Campaigns state ===
 	const [campaigns, setCampaigns] = useState<NotificationCampaign[]>([]);
@@ -303,14 +349,9 @@ export default function NotificationsPage() {
 
 	// Create campaign dialog
 	const [showCreateCampaign, setShowCreateCampaign] = useState(false);
-	const [isCreatingCampaign, setIsCreatingCampaign] = useState(false);
-	const [campaignForm, setCampaignForm] = useState({
-		name: '',
-		title: '',
-		message: '',
-		channel: 'push' as NotificationChannel,
-		audience: 'all_riders' as AudienceSegment,
-		scheduled_at: '',
+	const campaignForm = useForm<CampaignFormValues>({
+		resolver: zodResolver(campaignSchema),
+		defaultValues: CAMPAIGN_DEFAULTS,
 	});
 
 	// Campaign action dialogs
@@ -331,13 +372,9 @@ export default function NotificationsPage() {
 	// Create/Edit template dialog
 	const [showTemplateDialog, setShowTemplateDialog] = useState(false);
 	const [editingTemplate, setEditingTemplate] = useState<NotificationTemplate | null>(null);
-	const [isSavingTemplate, setIsSavingTemplate] = useState(false);
-	const [templateForm, setTemplateForm] = useState({
-		name: '',
-		title: '',
-		message: '',
-		channel: 'push' as NotificationChannel,
-		is_active: true,
+	const templateForm = useForm<TemplateFormValues>({
+		resolver: zodResolver(templateSchema),
+		defaultValues: TEMPLATE_DEFAULTS,
 	});
 	const [deleteTemplateId, setDeleteTemplateId] = useState<string | null>(null);
 
@@ -426,37 +463,25 @@ export default function NotificationsPage() {
 
 	// ==================== Campaign Actions ====================
 
-	const handleCreateCampaign = async () => {
-		if (!campaignForm.name.trim() || !campaignForm.title.trim() || !campaignForm.message.trim()) {
-			toast.error('Please fill in all required fields');
-			return;
-		}
+	const onCreateCampaign = async (values: CampaignFormValues) => {
 		try {
-			setIsCreatingCampaign(true);
 			await notificationService.createCampaign({
-				name: campaignForm.name,
-				title: campaignForm.title,
-				message: campaignForm.message,
-				channel: campaignForm.channel,
-				audience: campaignForm.audience,
-				...(campaignForm.scheduled_at && { scheduled_at: new Date(campaignForm.scheduled_at).toISOString() }),
+				name: values.name.trim(),
+				title: values.title.trim(),
+				message: values.message.trim(),
+				channel: values.channel,
+				audience: values.audience,
+				...(values.scheduled_at && {
+					scheduled_at: new Date(values.scheduled_at).toISOString(),
+				}),
 			});
 			toast.success('Campaign created successfully');
 			setShowCreateCampaign(false);
-			setCampaignForm({
-				name: '',
-				title: '',
-				message: '',
-				channel: 'push',
-				audience: 'all_riders',
-				scheduled_at: '',
-			});
+			campaignForm.reset(CAMPAIGN_DEFAULTS);
 			fetchCampaigns();
 		} catch (error) {
 			const errorMessage = error instanceof Error ? error.message : 'Failed to create campaign';
 			toast.error('Failed to create campaign', { description: errorMessage });
-		} finally {
-			setIsCreatingCampaign(false);
 		}
 	};
 
@@ -503,51 +528,40 @@ export default function NotificationsPage() {
 
 	const openCreateTemplate = () => {
 		setEditingTemplate(null);
-		setTemplateForm({
-			name: '',
-			title: '',
-			message: '',
-			channel: 'push',
-			is_active: true,
+		templateForm.reset(TEMPLATE_DEFAULTS);
+		setShowTemplateDialog(true);
+	};
+
+	const openEditTemplate = (t: NotificationTemplate) => {
+		setEditingTemplate(t);
+		templateForm.reset({
+			name: t.name,
+			title: t.title,
+			message: t.message,
+			channel: t.channel,
+			is_active: t.is_active,
 		});
 		setShowTemplateDialog(true);
 	};
 
-	const openEditTemplate = (template: NotificationTemplate) => {
-		setEditingTemplate(template);
-		setTemplateForm({
-			name: template.name,
-			title: template.title,
-			message: template.message,
-			channel: template.channel,
-			is_active: template.is_active,
-		});
-		setShowTemplateDialog(true);
-	};
-
-	const handleSaveTemplate = async () => {
-		if (!templateForm.name.trim() || !templateForm.title.trim() || !templateForm.message.trim()) {
-			toast.error('Please fill in all required fields');
-			return;
-		}
+	const onSaveTemplate = async (values: TemplateFormValues) => {
 		try {
-			setIsSavingTemplate(true);
 			if (editingTemplate) {
 				await notificationService.updateTemplate(editingTemplate.id, {
-					name: templateForm.name,
-					title: templateForm.title,
-					message: templateForm.message,
-					channel: templateForm.channel,
-					is_active: templateForm.is_active,
+					name: values.name.trim(),
+					title: values.title.trim(),
+					message: values.message.trim(),
+					channel: values.channel,
+					is_active: values.is_active,
 				});
 				toast.success('Template updated successfully');
 			} else {
 				await notificationService.createTemplate({
-					name: templateForm.name,
-					title: templateForm.title,
-					message: templateForm.message,
-					channel: templateForm.channel,
-					is_active: templateForm.is_active,
+					name: values.name.trim(),
+					title: values.title.trim(),
+					message: values.message.trim(),
+					channel: values.channel,
+					is_active: values.is_active,
 				});
 				toast.success('Template created successfully');
 			}
@@ -557,8 +571,6 @@ export default function NotificationsPage() {
 		} catch (error) {
 			const errorMessage = error instanceof Error ? error.message : 'Failed to save template';
 			toast.error('Failed to save template', { description: errorMessage });
-		} finally {
-			setIsSavingTemplate(false);
 		}
 	};
 
@@ -1316,118 +1328,120 @@ export default function NotificationsPage() {
 							Create a new notification campaign to reach your users.
 						</DialogDescription>
 					</DialogHeader>
-					<div className='space-y-4'>
-						<div className='space-y-2'>
-							<Label htmlFor='campaign-name'>Name</Label>
-							<Input
-								id='campaign-name'
-								placeholder='Campaign name'
-								value={campaignForm.name}
-								onChange={(e) =>
-									setCampaignForm((prev) => ({ ...prev, name: e.target.value }))
-								}
-							/>
-						</div>
-						<div className='space-y-2'>
-							<Label htmlFor='campaign-title'>Title</Label>
-							<Input
-								id='campaign-title'
-								placeholder='Notification title'
-								value={campaignForm.title}
-								onChange={(e) =>
-									setCampaignForm((prev) => ({ ...prev, title: e.target.value }))
-								}
-							/>
-						</div>
-						<div className='space-y-2'>
-							<Label htmlFor='campaign-message'>Message</Label>
-							<Textarea
-								id='campaign-message'
-								placeholder='Notification message content...'
-								value={campaignForm.message}
-								onChange={(e) =>
-									setCampaignForm((prev) => ({ ...prev, message: e.target.value }))
-								}
-								rows={4}
-							/>
-						</div>
-						<div className='grid grid-cols-2 gap-4'>
+					<form onSubmit={campaignForm.handleSubmit(onCreateCampaign)}>
+						<div className='space-y-4'>
 							<div className='space-y-2'>
-								<Label>Channel</Label>
-								<Select
-									value={campaignForm.channel}
-									onValueChange={(value) =>
-										setCampaignForm((prev) => ({
-											...prev,
-											channel: value as NotificationChannel,
-										}))
-									}
-								>
-									<SelectTrigger>
-										<SelectValue />
-									</SelectTrigger>
-									<SelectContent>
-										<SelectItem value='push'>Push</SelectItem>
-										<SelectItem value='sms'>SMS</SelectItem>
-										<SelectItem value='email'>Email</SelectItem>
-									</SelectContent>
-								</Select>
+								<Label htmlFor='campaign-name'>Name</Label>
+								<Input
+									id='campaign-name'
+									placeholder='Campaign name'
+									aria-invalid={!!campaignForm.formState.errors.name}
+									{...campaignForm.register('name')}
+								/>
+								{campaignForm.formState.errors.name && (
+									<p className='text-xs text-destructive'>
+										{campaignForm.formState.errors.name.message}
+									</p>
+								)}
 							</div>
 							<div className='space-y-2'>
-								<Label>Audience</Label>
-								<Select
-									value={campaignForm.audience}
-									onValueChange={(value) =>
-										setCampaignForm((prev) => ({
-											...prev,
-											audience: value as AudienceSegment,
-										}))
-									}
-								>
-									<SelectTrigger>
-										<SelectValue />
-									</SelectTrigger>
-									<SelectContent>
-										<SelectItem value='all_riders'>All Riders</SelectItem>
-										<SelectItem value='all_drivers'>All Drivers</SelectItem>
-										<SelectItem value='active_riders'>Active Riders</SelectItem>
-										<SelectItem value='active_drivers'>Active Drivers</SelectItem>
-										<SelectItem value='inactive_users'>Inactive Users</SelectItem>
-										<SelectItem value='custom'>Custom</SelectItem>
-									</SelectContent>
-								</Select>
+								<Label htmlFor='campaign-title'>Title</Label>
+								<Input
+									id='campaign-title'
+									placeholder='Notification title'
+									aria-invalid={!!campaignForm.formState.errors.title}
+									{...campaignForm.register('title')}
+								/>
+								{campaignForm.formState.errors.title && (
+									<p className='text-xs text-destructive'>
+										{campaignForm.formState.errors.title.message}
+									</p>
+								)}
+							</div>
+							<div className='space-y-2'>
+								<Label htmlFor='campaign-message'>Message</Label>
+								<Textarea
+									id='campaign-message'
+									placeholder='Notification message content...'
+									rows={4}
+									aria-invalid={!!campaignForm.formState.errors.message}
+									{...campaignForm.register('message')}
+								/>
+								{campaignForm.formState.errors.message && (
+									<p className='text-xs text-destructive'>
+										{campaignForm.formState.errors.message.message}
+									</p>
+								)}
+							</div>
+							<div className='grid grid-cols-2 gap-4'>
+								<div className='space-y-2'>
+									<Label>Channel</Label>
+									<Controller
+										control={campaignForm.control}
+										name='channel'
+										render={({ field }) => (
+											<Select value={field.value} onValueChange={field.onChange}>
+												<SelectTrigger>
+													<SelectValue />
+												</SelectTrigger>
+												<SelectContent>
+													<SelectItem value='push'>Push</SelectItem>
+													<SelectItem value='sms'>SMS</SelectItem>
+													<SelectItem value='email'>Email</SelectItem>
+												</SelectContent>
+											</Select>
+										)}
+									/>
+								</div>
+								<div className='space-y-2'>
+									<Label>Audience</Label>
+									<Controller
+										control={campaignForm.control}
+										name='audience'
+										render={({ field }) => (
+											<Select value={field.value} onValueChange={field.onChange}>
+												<SelectTrigger>
+													<SelectValue />
+												</SelectTrigger>
+												<SelectContent>
+													<SelectItem value='all_riders'>All Riders</SelectItem>
+													<SelectItem value='all_drivers'>All Drivers</SelectItem>
+													<SelectItem value='active_riders'>Active Riders</SelectItem>
+													<SelectItem value='active_drivers'>Active Drivers</SelectItem>
+													<SelectItem value='inactive_users'>Inactive Users</SelectItem>
+													<SelectItem value='custom'>Custom</SelectItem>
+												</SelectContent>
+											</Select>
+										)}
+									/>
+								</div>
+							</div>
+							<div className='space-y-2'>
+								<Label htmlFor='campaign-scheduled'>Schedule (optional)</Label>
+								<Input
+									id='campaign-scheduled'
+									type='datetime-local'
+									{...campaignForm.register('scheduled_at')}
+								/>
+								<p className='text-xs text-muted-foreground'>
+									Leave empty to save as draft. Set a date to schedule delivery.
+								</p>
 							</div>
 						</div>
-						<div className='space-y-2'>
-							<Label htmlFor='campaign-scheduled'>Schedule (optional)</Label>
-							<Input
-								id='campaign-scheduled'
-								type='datetime-local'
-								value={campaignForm.scheduled_at}
-								onChange={(e) =>
-									setCampaignForm((prev) => ({
-										...prev,
-										scheduled_at: e.target.value,
-									}))
-								}
-							/>
-							<p className='text-xs text-muted-foreground'>
-								Leave empty to save as draft. Set a date to schedule delivery.
-							</p>
-						</div>
-					</div>
-					<DialogFooter>
-						<Button
-							variant='outline'
-							onClick={() => setShowCreateCampaign(false)}
-							disabled={isCreatingCampaign}
-						>
-							Cancel
-						</Button>
-						<Button onClick={handleCreateCampaign} disabled={isCreatingCampaign}>
-							{isCreatingCampaign ? 'Creating...' : 'Create Campaign'}
-						</Button>
-					</DialogFooter>
+						<DialogFooter>
+							<Button
+								type='button'
+								variant='outline'
+								onClick={() => setShowCreateCampaign(false)}
+								disabled={campaignForm.formState.isSubmitting}
+							>
+								Cancel
+							</Button>
+							<Button type='submit' disabled={campaignForm.formState.isSubmitting}>
+								{campaignForm.formState.isSubmitting ? 'Creating...' : 'Create Campaign'}
+							</Button>
+						</DialogFooter>
+					</form>
 				</DialogContent>
 			</Dialog>
 
@@ -1444,95 +1458,103 @@ export default function NotificationsPage() {
 								: 'Create a reusable notification template.'}
 						</DialogDescription>
 					</DialogHeader>
-					<div className='space-y-4'>
-						<div className='space-y-2'>
-							<Label htmlFor='template-name'>Name</Label>
-							<Input
-								id='template-name'
-								placeholder='Template name'
-								value={templateForm.name}
-								onChange={(e) =>
-									setTemplateForm((prev) => ({ ...prev, name: e.target.value }))
-								}
-							/>
+					<form onSubmit={templateForm.handleSubmit(onSaveTemplate)}>
+						<div className='space-y-4'>
+							<div className='space-y-2'>
+								<Label htmlFor='template-name'>Name</Label>
+								<Input
+									id='template-name'
+									placeholder='Template name'
+									aria-invalid={!!templateForm.formState.errors.name}
+									{...templateForm.register('name')}
+								/>
+								{templateForm.formState.errors.name && (
+									<p className='text-xs text-destructive'>
+										{templateForm.formState.errors.name.message}
+									</p>
+								)}
+							</div>
+							<div className='space-y-2'>
+								<Label htmlFor='template-title'>Title</Label>
+								<Input
+									id='template-title'
+									placeholder='Notification title'
+									aria-invalid={!!templateForm.formState.errors.title}
+									{...templateForm.register('title')}
+								/>
+								{templateForm.formState.errors.title && (
+									<p className='text-xs text-destructive'>
+										{templateForm.formState.errors.title.message}
+									</p>
+								)}
+							</div>
+							<div className='space-y-2'>
+								<Label htmlFor='template-message'>Message</Label>
+								<Textarea
+									id='template-message'
+									placeholder='Notification message content...'
+									rows={4}
+									aria-invalid={!!templateForm.formState.errors.message}
+									{...templateForm.register('message')}
+								/>
+								{templateForm.formState.errors.message && (
+									<p className='text-xs text-destructive'>
+										{templateForm.formState.errors.message.message}
+									</p>
+								)}
+							</div>
+							<div className='space-y-2'>
+								<Label>Channel</Label>
+								<Controller
+									control={templateForm.control}
+									name='channel'
+									render={({ field }) => (
+										<Select value={field.value} onValueChange={field.onChange}>
+											<SelectTrigger>
+												<SelectValue />
+											</SelectTrigger>
+											<SelectContent>
+												<SelectItem value='push'>Push</SelectItem>
+												<SelectItem value='sms'>SMS</SelectItem>
+												<SelectItem value='email'>Email</SelectItem>
+											</SelectContent>
+										</Select>
+									)}
+								/>
+							</div>
+							<div className='flex items-center gap-3'>
+								<Controller
+									control={templateForm.control}
+									name='is_active'
+									render={({ field }) => (
+										<Switch
+											id='template-active'
+											checked={field.value}
+											onCheckedChange={field.onChange}
+										/>
+									)}
+								/>
+								<Label htmlFor='template-active'>Active</Label>
+							</div>
 						</div>
-						<div className='space-y-2'>
-							<Label htmlFor='template-title'>Title</Label>
-							<Input
-								id='template-title'
-								placeholder='Notification title'
-								value={templateForm.title}
-								onChange={(e) =>
-									setTemplateForm((prev) => ({ ...prev, title: e.target.value }))
-								}
-							/>
-						</div>
-						<div className='space-y-2'>
-							<Label htmlFor='template-message'>Message</Label>
-							<Textarea
-								id='template-message'
-								placeholder='Notification message content...'
-								value={templateForm.message}
-								onChange={(e) =>
-									setTemplateForm((prev) => ({
-										...prev,
-										message: e.target.value,
-									}))
-								}
-								rows={4}
-							/>
-						</div>
-						<div className='space-y-2'>
-							<Label>Channel</Label>
-							<Select
-								value={templateForm.channel}
-								onValueChange={(value) =>
-									setTemplateForm((prev) => ({
-										...prev,
-										channel: value as NotificationChannel,
-									}))
-								}
+						<DialogFooter>
+							<Button
+								type='button'
+								variant='outline'
+								onClick={() => setShowTemplateDialog(false)}
+								disabled={templateForm.formState.isSubmitting}
 							>
-								<SelectTrigger>
-									<SelectValue />
-								</SelectTrigger>
-								<SelectContent>
-									<SelectItem value='push'>Push</SelectItem>
-									<SelectItem value='sms'>SMS</SelectItem>
-									<SelectItem value='email'>Email</SelectItem>
-								</SelectContent>
-							</Select>
-						</div>
-						<div className='flex items-center gap-3'>
-							<Switch
-								id='template-active'
-								checked={templateForm.is_active}
-								onCheckedChange={(checked) =>
-									setTemplateForm((prev) => ({
-										...prev,
-										is_active: checked,
-									}))
-								}
-							/>
-							<Label htmlFor='template-active'>Active</Label>
-						</div>
-					</div>
-					<DialogFooter>
-						<Button
-							variant='outline'
-							onClick={() => setShowTemplateDialog(false)}
-							disabled={isSavingTemplate}
-						>
-							Cancel
-						</Button>
-						<Button onClick={handleSaveTemplate} disabled={isSavingTemplate}>
-							{isSavingTemplate
-								? 'Saving...'
-								: editingTemplate
-									? 'Update Template'
-									: 'Create Template'}
-						</Button>
-					</DialogFooter>
+								Cancel
+							</Button>
+							<Button type='submit' disabled={templateForm.formState.isSubmitting}>
+								{templateForm.formState.isSubmitting
+									? 'Saving...'
+									: editingTemplate
+										? 'Update Template'
+										: 'Create Template'}
+							</Button>
+						</DialogFooter>
+					</form>
 				</DialogContent>
 			</Dialog>
 
