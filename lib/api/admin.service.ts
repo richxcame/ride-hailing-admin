@@ -28,6 +28,7 @@ import {
   FinancialReport,
   AnalyticsComparison,
 } from '@/lib/types/models';
+import { AdminAuditLog } from '@/lib/types/audit';
 
 /**
  * Admin Service API Client
@@ -454,5 +455,26 @@ export const adminService = {
       params
     );
     return response.data;
+  },
+
+  // ==================== Audit Logs ====================
+
+  /**
+   * Get the admin audit trail (who changed what)
+   * GET /api/v1/admin/audit-logs
+   */
+  getAuditLogs: async (
+    params?: PaginationParams & {
+      admin_id?: string;
+      action?: string;
+      target_type?: string;
+      target_id?: string;
+    }
+  ): Promise<PaginatedResponse<AdminAuditLog>> => {
+    return api.get<PaginatedResponse<AdminAuditLog>>(
+      adminClient,
+      '/api/v1/admin/audit-logs',
+      params
+    );
   },
 };
