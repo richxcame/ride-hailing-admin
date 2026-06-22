@@ -12,6 +12,9 @@ import {
 } from '@tanstack/react-table';
 import { IconPlus, IconEdit, IconTrash } from '@tabler/icons-react';
 import { toast } from 'sonner';
+import { Controller, useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import { TimeMultiplier } from '@/lib/types/pricing';
 import { pricingService } from '@/lib/api/pricing.service';
 import { LocationFilter } from '@/components/pricing/location-filter';
@@ -54,26 +57,34 @@ interface PricingTimeMultipliersTabProps {
 	onRefresh?: () => void;
 }
 
-interface FormData {
-	name: string;
-	days_of_week: number[];
-	start_time: string;
-	end_time: string;
-	multiplier: number;
-	priority: number;
-	is_active: boolean;
-	country_id?: string;
-	region_id?: string;
-	city_id?: string;
-}
+const timeSchema = z
+	.object({
+		name: z.string().trim().min(1, 'Name is required'),
+		days_of_week: z.array(z.number()).min(1, 'Select at least one day'),
+		start_time: z.string().min(1, 'Start time is required'),
+		end_time: z.string().min(1, 'End time is required'),
+		multiplier: z.string().min(1, 'Multiplier is required'),
+		priority: z.string(),
+		is_active: z.boolean(),
+	})
+	.refine((d) => d.start_time < d.end_time, {
+		message: 'Start time must be before end time',
+		path: ['end_time'],
+	})
+	.refine((d) => Number(d.multiplier) >= 1, {
+		message: 'Multiplier must be at least 1.0',
+		path: ['multiplier'],
+	});
 
-const DEFAULT_FORM: FormData = {
+type TimeFormValues = z.infer<typeof timeSchema>;
+
+const DEFAULT_VALUES: TimeFormValues = {
 	name: '',
 	days_of_week: [0, 1, 2, 3, 4, 5, 6],
 	start_time: '07:00',
 	end_time: '09:00',
-	multiplier: 1.3,
-	priority: 0,
+	multiplier: '1.3',
+	priority: '0',
 	is_active: true,
 };
 
@@ -123,8 +134,21 @@ export function PricingTimeMultipliersTab({ versionId, onRefresh }: PricingTimeM
 	// Dialog state
 	const [dialogOpen, setDialogOpen] = useState(false);
 	const [editingItem, setEditingItem] = useState<TimeMultiplier | null>(null);
-	const [formData, setFormData] = useState<FormData>(DEFAULT_FORM);
-	const [isSubmitting, setIsSubmitting] = useState(false);
+	const [formLocation, setFormLocation] = useState<{
+		country_id?: string;
+		region_id?: string;
+		city_id?: string;
+	}>({});
+	const {
+		register,
+		handleSubmit,
+		control,
+		reset,
+		formState: { errors, isSubmitting },
+	} = useForm<TimeFormValues>({
+		resolver: zodResolver(timeSchema),
+		defaultValues: DEFAULT_VALUES,
+	});
 
 	// Delete state
 	const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -165,48 +189,41 @@ export function PricingTimeMultipliersTab({ versionId, onRefresh }: PricingTimeM
 
 	const handleOpenCreate = () => {
 		setEditingItem(null);
-		setFormData({ ...DEFAULT_FORM, country_id: countryId, region_id: regionId, city_id: cityId });
+		setFormLocation({ country_id: countryId, region_id: regionId, city_id: cityId });
+		reset(DEFAULT_VALUES);
 		setDialogOpen(true);
 	};
 
 	const handleOpenEdit = (item: TimeMultiplier) => {
 		setEditingItem(item);
-		setFormData({
-			name: item.name,
-			days_of_week: item.days_of_week,
-			start_time: item.start_time,
-			end_time: item.end_time,
-			multiplier: item.multiplier,
-			priority: item.priority,
-			is_active: item.is_active,
+		setFormLocation({
 			country_id: item.country_id,
 			region_id: item.region_id,
 			city_id: item.city_id,
 		});
+		reset({
+			name: item.name,
+			days_of_week: item.days_of_week,
+			start_time: item.start_time,
+			end_time: item.end_time,
+			multiplier: item.multiplier.toString(),
+			priority: item.priority.toString(),
+			is_active: item.is_active,
+		});
 		setDialogOpen(true);
 	};
 
-	const handleSubmit = async () => {
-		if (!formData.name.trim()) {
-			toast.error('Name is required');
-			return;
-		}
-		if (formData.days_of_week.length === 0) {
-			toast.error('Select at least one day');
-			return;
-		}
-		if (formData.start_time >= formData.end_time) {
-			toast.error('Start time must be before end time');
-			return;
-		}
-		if (formData.multiplier < 1.0) {
-			toast.error('Multiplier must be at least 1.0');
-			return;
-		}
-		setIsSubmitting(true);
+	const onSubmit = async (values: TimeFormValues) => {
 		try {
 			const payload = {
-				...formData,
+				name: values.name.trim(),
+				days_of_week: values.days_of_week,
+				start_time: values.start_time,
+				end_time: values.end_time,
+				multiplier: Number(values.multiplier),
+				priority: Number(values.priority) || 0,
+				is_active: values.is_active,
+				...formLocation,
 				version_id: versionId,
 			};
 			if (editingItem) {
@@ -221,8 +238,6 @@ export function PricingTimeMultipliersTab({ versionId, onRefresh }: PricingTimeM
 			onRefresh?.();
 		} catch {
 			toast.error(editingItem ? 'Failed to update time multiplier' : 'Failed to create time multiplier');
-		} finally {
-			setIsSubmitting(false);
 		}
 	};
 
@@ -242,15 +257,6 @@ export function PricingTimeMultipliersTab({ versionId, onRefresh }: PricingTimeM
 
 	const handlePageChange = (newOffset: number) => {
 		setPagination((prev) => ({ ...prev, offset: newOffset }));
-	};
-
-	const toggleDay = (day: number) => {
-		setFormData((prev) => ({
-			...prev,
-			days_of_week: prev.days_of_week.includes(day)
-				? prev.days_of_week.filter((d) => d !== day)
-				: [...prev.days_of_week, day].sort((a, b) => a - b),
-		}));
 	};
 
 	const columns: ColumnDef<TimeMultiplier>[] = useMemo(
@@ -484,125 +490,122 @@ export function PricingTimeMultipliersTab({ versionId, onRefresh }: PricingTimeM
 								: 'Create a new time-based pricing multiplier.'}
 						</DialogDescription>
 					</DialogHeader>
-					<div className='grid gap-4 py-4'>
-						<div className='grid gap-2'>
-							<Label htmlFor='name'>Name</Label>
-							<Input
-								id='name'
-								value={formData.name}
-								onChange={(e) =>
-									setFormData((prev) => ({ ...prev, name: e.target.value }))
-								}
-								placeholder='e.g., Morning Rush Hour'
-							/>
-						</div>
-						<div className='grid gap-2'>
-							<Label>Days of Week</Label>
-							<div className='flex flex-wrap gap-3'>
-								{[0, 1, 2, 3, 4, 5, 6].map((day) => (
-									<div key={day} className='flex items-center gap-1.5'>
-										<Checkbox
-											id={`day-${day}`}
-											checked={formData.days_of_week.includes(day)}
-											onCheckedChange={() => toggleDay(day)}
+					<form onSubmit={handleSubmit(onSubmit)}>
+						<div className='grid gap-4 py-4'>
+							<div className='grid gap-2'>
+								<Label htmlFor='name'>Name</Label>
+								<Input
+									id='name'
+									placeholder='e.g., Morning Rush Hour'
+									aria-invalid={!!errors.name}
+									{...register('name')}
+								/>
+								{errors.name && (
+									<p className='text-xs text-destructive'>{errors.name.message}</p>
+								)}
+							</div>
+							<div className='grid gap-2'>
+								<Label>Days of Week</Label>
+								<Controller
+									control={control}
+									name='days_of_week'
+									render={({ field }) => (
+										<div className='flex flex-wrap gap-3'>
+											{[0, 1, 2, 3, 4, 5, 6].map((day) => (
+												<div key={day} className='flex items-center gap-1.5'>
+													<Checkbox
+														id={`day-${day}`}
+														checked={field.value.includes(day)}
+														onCheckedChange={() =>
+															field.onChange(
+																field.value.includes(day)
+																	? field.value.filter((d) => d !== day)
+																	: [...field.value, day].sort((a, b) => a - b),
+															)
+														}
+													/>
+													<Label
+														htmlFor={`day-${day}`}
+														className='text-sm font-normal cursor-pointer'
+													>
+														{DAY_NAMES_FULL[day]}
+													</Label>
+												</div>
+											))}
+										</div>
+									)}
+								/>
+								{errors.days_of_week && (
+									<p className='text-xs text-destructive'>{errors.days_of_week.message}</p>
+								)}
+							</div>
+							<div className='grid grid-cols-2 gap-4'>
+								<div className='grid gap-2'>
+									<Label htmlFor='start_time'>Start Time</Label>
+									<Input id='start_time' type='time' {...register('start_time')} />
+								</div>
+								<div className='grid gap-2'>
+									<Label htmlFor='end_time'>End Time</Label>
+									<Input
+										id='end_time'
+										type='time'
+										aria-invalid={!!errors.end_time}
+										{...register('end_time')}
+									/>
+									{errors.end_time && (
+										<p className='text-xs text-destructive'>{errors.end_time.message}</p>
+									)}
+								</div>
+							</div>
+							<div className='grid grid-cols-2 gap-4'>
+								<div className='grid gap-2'>
+									<Label htmlFor='multiplier'>Multiplier</Label>
+									<Input
+										id='multiplier'
+										type='number'
+										step={0.1}
+										min={1.0}
+										aria-invalid={!!errors.multiplier}
+										{...register('multiplier')}
+									/>
+									{errors.multiplier && (
+										<p className='text-xs text-destructive'>{errors.multiplier.message}</p>
+									)}
+								</div>
+								<div className='grid gap-2'>
+									<Label htmlFor='priority'>Priority</Label>
+									<Input id='priority' type='number' min={0} {...register('priority')} />
+								</div>
+							</div>
+							<div className='flex items-center justify-between'>
+								<Label htmlFor='is_active'>Active</Label>
+								<Controller
+									control={control}
+									name='is_active'
+									render={({ field }) => (
+										<Switch
+											id='is_active'
+											checked={field.value}
+											onCheckedChange={field.onChange}
 										/>
-										<Label htmlFor={`day-${day}`} className='text-sm font-normal cursor-pointer'>
-											{DAY_NAMES_FULL[day]}
-										</Label>
-									</div>
-								))}
-							</div>
-						</div>
-						<div className='grid grid-cols-2 gap-4'>
-							<div className='grid gap-2'>
-								<Label htmlFor='start_time'>Start Time</Label>
-								<Input
-									id='start_time'
-									type='time'
-									value={formData.start_time}
-									onChange={(e) =>
-										setFormData((prev) => ({
-											...prev,
-											start_time: e.target.value,
-										}))
-									}
-								/>
-							</div>
-							<div className='grid gap-2'>
-								<Label htmlFor='end_time'>End Time</Label>
-								<Input
-									id='end_time'
-									type='time'
-									value={formData.end_time}
-									onChange={(e) =>
-										setFormData((prev) => ({
-											...prev,
-											end_time: e.target.value,
-										}))
-									}
+									)}
 								/>
 							</div>
 						</div>
-						<div className='grid grid-cols-2 gap-4'>
-							<div className='grid gap-2'>
-								<Label htmlFor='multiplier'>Multiplier</Label>
-								<Input
-									id='multiplier'
-									type='number'
-									step={0.1}
-									min={1.0}
-									value={formData.multiplier}
-									onChange={(e) =>
-										setFormData((prev) => ({
-											...prev,
-											multiplier: parseFloat(e.target.value) || 1.0,
-										}))
-									}
-								/>
-							</div>
-							<div className='grid gap-2'>
-								<Label htmlFor='priority'>Priority</Label>
-								<Input
-									id='priority'
-									type='number'
-									min={0}
-									value={formData.priority}
-									onChange={(e) =>
-										setFormData((prev) => ({
-											...prev,
-											priority: parseInt(e.target.value, 10) || 0,
-										}))
-									}
-								/>
-							</div>
-						</div>
-						<div className='flex items-center justify-between'>
-							<Label htmlFor='is_active'>Active</Label>
-							<Switch
-								id='is_active'
-								checked={formData.is_active}
-								onCheckedChange={(checked) =>
-									setFormData((prev) => ({ ...prev, is_active: checked }))
-								}
-							/>
-						</div>
-					</div>
-					<DialogFooter>
-						<Button
-							variant='outline'
-							onClick={() => setDialogOpen(false)}
-							disabled={isSubmitting}
-						>
-							Cancel
-						</Button>
-						<Button onClick={handleSubmit} disabled={isSubmitting}>
-							{isSubmitting
-								? 'Saving...'
-								: editingItem
-									? 'Update'
-									: 'Create'}
-						</Button>
-					</DialogFooter>
+						<DialogFooter>
+							<Button
+								type='button'
+								variant='outline'
+								onClick={() => setDialogOpen(false)}
+								disabled={isSubmitting}
+							>
+								Cancel
+							</Button>
+							<Button type='submit' disabled={isSubmitting}>
+								{isSubmitting ? 'Saving...' : editingItem ? 'Update' : 'Create'}
+							</Button>
+						</DialogFooter>
+					</form>
 				</DialogContent>
 			</Dialog>
 
