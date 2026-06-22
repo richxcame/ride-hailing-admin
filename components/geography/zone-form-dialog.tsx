@@ -1,6 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo } from 'react';
+import { Controller, useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import { toast } from 'sonner';
 import {
 	Dialog,
@@ -29,15 +32,6 @@ import type {
 	UpdatePricingZoneRequest,
 } from '@/lib/types/geography';
 
-interface ZoneFormDialogProps {
-	open: boolean;
-	onOpenChange: (open: boolean) => void;
-	initialData?: PricingZone | null;
-	onSubmit: (
-		data: CreatePricingZoneRequest | UpdatePricingZoneRequest
-	) => Promise<void>;
-}
-
 const ZONE_TYPE_OPTIONS: { value: ZoneType; label: string }[] = [
 	{ value: 'airport', label: 'Airport' },
 	{ value: 'downtown', label: 'Downtown' },
@@ -47,108 +41,132 @@ const ZONE_TYPE_OPTIONS: { value: ZoneType; label: string }[] = [
 	{ value: 'toll_zone', label: 'Toll Zone' },
 ];
 
+const inRange = (s: string, min: number, max: number) => {
+	if (!s) return true;
+	const n = Number(s);
+	return !Number.isNaN(n) && n >= min && n <= max;
+};
+
+// Boundary + center coordinates are required when creating, optional when
+// editing (so an admin can tweak a zone without re-entering its WKT polygon).
+function makeZoneSchema(isEdit: boolean) {
+	return z
+		.object({
+			name: z.string().trim().min(1, 'Name is required'),
+			zone_type: z.enum([
+				'airport',
+				'downtown',
+				'transit_hub',
+				'event_venue',
+				'border_crossing',
+				'toll_zone',
+			]),
+			boundary: z.string(),
+			center_latitude: z.string(),
+			center_longitude: z.string(),
+			priority: z.string(),
+			is_active: z.boolean(),
+		})
+		.refine((d) => isEdit || d.boundary.trim().length > 0, {
+			message: 'Boundary is required',
+			path: ['boundary'],
+		})
+		.refine((d) => isEdit || d.center_latitude.trim().length > 0, {
+			message: 'Latitude is required',
+			path: ['center_latitude'],
+		})
+		.refine((d) => isEdit || d.center_longitude.trim().length > 0, {
+			message: 'Longitude is required',
+			path: ['center_longitude'],
+		})
+		.refine((d) => inRange(d.center_latitude, -90, 90), {
+			message: 'Latitude must be between -90 and 90',
+			path: ['center_latitude'],
+		})
+		.refine((d) => inRange(d.center_longitude, -180, 180), {
+			message: 'Longitude must be between -180 and 180',
+			path: ['center_longitude'],
+		});
+}
+
+type ZoneFormValues = z.infer<ReturnType<typeof makeZoneSchema>>;
+
+function toValues(z?: PricingZone | null): ZoneFormValues {
+	return {
+		name: z?.name ?? '',
+		zone_type: (z?.zone_type ?? 'downtown') as ZoneType,
+		boundary: z?.boundary ?? '',
+		center_latitude: z?.center_latitude?.toString() ?? '',
+		center_longitude: z?.center_longitude?.toString() ?? '',
+		priority: z?.priority?.toString() ?? '0',
+		is_active: z?.is_active ?? true,
+	};
+}
+
+interface ZoneFormDialogProps {
+	open: boolean;
+	onOpenChange: (open: boolean) => void;
+	initialData?: PricingZone | null;
+	onSubmit: (data: CreatePricingZoneRequest | UpdatePricingZoneRequest) => Promise<void>;
+}
+
 export function ZoneFormDialog({
 	open,
 	onOpenChange,
 	initialData,
 	onSubmit,
 }: ZoneFormDialogProps) {
-	const [isSubmitting, setIsSubmitting] = useState(false);
-	const [formData, setFormData] = useState({
-		name: initialData?.name || '',
-		zone_type: (initialData?.zone_type || 'downtown') as ZoneType,
-		boundary: initialData?.boundary || '',
-		center_latitude: initialData?.center_latitude?.toString() || '',
-		center_longitude: initialData?.center_longitude?.toString() || '',
-		priority: initialData?.priority?.toString() || '0',
-		is_active: initialData?.is_active ?? true,
+	const isEdit = !!initialData;
+	const schema = useMemo(() => makeZoneSchema(isEdit), [isEdit]);
+
+	const {
+		register,
+		handleSubmit,
+		control,
+		reset,
+		formState: { errors, isSubmitting },
+	} = useForm<ZoneFormValues>({
+		resolver: zodResolver(schema),
+		defaultValues: toValues(initialData),
 	});
 
-	// Reset form state to initialData when the dialog opens. See
-	// https://react.dev/learn/you-might-not-need-an-effect.
-	/* eslint-disable react-hooks/set-state-in-effect */
 	useEffect(() => {
-		if (open) {
-			setFormData({
-				name: initialData?.name || '',
-				zone_type: (initialData?.zone_type || 'downtown') as ZoneType,
-				boundary: initialData?.boundary || '',
-				center_latitude: initialData?.center_latitude?.toString() || '',
-				center_longitude: initialData?.center_longitude?.toString() || '',
-				priority: initialData?.priority?.toString() || '0',
-				is_active: initialData?.is_active ?? true,
-			});
-		}
-	}, [open, initialData]);
-	/* eslint-enable react-hooks/set-state-in-effect */
+		if (open) reset(toValues(initialData));
+	}, [open, initialData, reset]);
 
-	const handleInputChange = (field: string, value: string | boolean) => {
-		setFormData((prev) => ({ ...prev, [field]: value }));
-	};
-
-	const handleSubmit = async (e: React.FormEvent) => {
-		e.preventDefault();
-		setIsSubmitting(true);
-
+	const submit = async (v: ZoneFormValues) => {
 		try {
-			if (!formData.name || !formData.zone_type) {
-				toast.error('Please fill in all required fields');
-				return;
-			}
-
-			if (!initialData) {
-				// Creating: boundary, lat, lng are required
-				if (!formData.boundary || !formData.center_latitude || !formData.center_longitude) {
-					toast.error('Boundary and center coordinates are required');
-					return;
-				}
-			}
-
-			const center_latitude = formData.center_latitude ? parseFloat(formData.center_latitude) : undefined;
-			const center_longitude = formData.center_longitude ? parseFloat(formData.center_longitude) : undefined;
-
-			if (center_latitude !== undefined && (isNaN(center_latitude) || center_latitude < -90 || center_latitude > 90)) {
-				toast.error('Latitude must be between -90 and 90');
-				return;
-			}
-			if (center_longitude !== undefined && (isNaN(center_longitude) || center_longitude < -180 || center_longitude > 180)) {
-				toast.error('Longitude must be between -180 and 180');
-				return;
-			}
+			const lat = v.center_latitude ? Number(v.center_latitude) : undefined;
+			const lng = v.center_longitude ? Number(v.center_longitude) : undefined;
+			const priority = v.priority ? parseInt(v.priority, 10) : undefined;
 
 			if (initialData) {
 				const payload: UpdatePricingZoneRequest = {
-					name: formData.name.trim(),
-					zone_type: formData.zone_type,
-					boundary: formData.boundary || undefined,
-					center_latitude,
-					center_longitude,
-					priority: formData.priority ? parseInt(formData.priority, 10) : undefined,
-					is_active: formData.is_active,
+					name: v.name.trim(),
+					zone_type: v.zone_type,
+					boundary: v.boundary || undefined,
+					center_latitude: lat,
+					center_longitude: lng,
+					priority,
+					is_active: v.is_active,
 				};
 				await onSubmit(payload);
 			} else {
 				const payload: CreatePricingZoneRequest = {
-					name: formData.name.trim(),
-					zone_type: formData.zone_type,
-					boundary: formData.boundary,
-					center_latitude: center_latitude!,
-					center_longitude: center_longitude!,
-					priority: formData.priority ? parseInt(formData.priority, 10) : undefined,
-					is_active: formData.is_active,
+					name: v.name.trim(),
+					zone_type: v.zone_type,
+					boundary: v.boundary,
+					center_latitude: lat!,
+					center_longitude: lng!,
+					priority,
+					is_active: v.is_active,
 				};
 				await onSubmit(payload);
 			}
 
-			toast.success(
-				initialData
-					? 'Zone updated successfully'
-					: 'Zone created successfully',
-				{
-					description: formData.name.trim(),
-				}
-			);
-
+			toast.success(initialData ? 'Zone updated successfully' : 'Zone created successfully', {
+				description: v.name.trim(),
+			});
 			onOpenChange(false);
 		} catch (error) {
 			const errorMessage =
@@ -157,12 +175,9 @@ export function ZoneFormDialog({
 					: initialData
 						? 'Failed to update zone'
 						: 'Failed to create zone';
-			toast.error(
-				initialData ? 'Failed to update zone' : 'Failed to create zone',
-				{ description: errorMessage }
-			);
-		} finally {
-			setIsSubmitting(false);
+			toast.error(initialData ? 'Failed to update zone' : 'Failed to create zone', {
+				description: errorMessage,
+			});
 		}
 	};
 
@@ -170,16 +185,12 @@ export function ZoneFormDialog({
 		<Dialog open={open} onOpenChange={onOpenChange}>
 			<DialogContent size='lg'>
 				<DialogHeader>
-					<DialogTitle>
-						{initialData ? 'Edit Zone' : 'Add Zone'}
-					</DialogTitle>
+					<DialogTitle>{initialData ? 'Edit Zone' : 'Add Zone'}</DialogTitle>
 					<DialogDescription>
-						{initialData
-							? 'Update zone details'
-							: 'Add a new pricing zone to the platform'}
+						{initialData ? 'Update zone details' : 'Add a new pricing zone to the platform'}
 					</DialogDescription>
 				</DialogHeader>
-				<form onSubmit={handleSubmit} className='space-y-4'>
+				<form onSubmit={handleSubmit(submit)} className='space-y-4'>
 					{/* Name */}
 					<div className='space-y-2'>
 						<Label htmlFor='name'>
@@ -188,10 +199,10 @@ export function ZoneFormDialog({
 						<Input
 							id='name'
 							placeholder='Airport Zone'
-							value={formData.name}
-							onChange={(e) => handleInputChange('name', e.target.value)}
-							required
+							aria-invalid={!!errors.name}
+							{...register('name')}
 						/>
+						{errors.name && <p className='text-xs text-destructive'>{errors.name.message}</p>}
 					</div>
 
 					{/* Zone Type */}
@@ -199,90 +210,83 @@ export function ZoneFormDialog({
 						<Label htmlFor='zone_type'>
 							Zone Type <span className='text-destructive'>*</span>
 						</Label>
-						<Select
-							value={formData.zone_type}
-							onValueChange={(value) =>
-								handleInputChange('zone_type', value as ZoneType)
-							}
-						>
-							<SelectTrigger id='zone_type'>
-								<SelectValue placeholder='Select zone type' />
-							</SelectTrigger>
-							<SelectContent>
-								{ZONE_TYPE_OPTIONS.map((option) => (
-									<SelectItem key={option.value} value={option.value}>
-										{option.label}
-									</SelectItem>
-								))}
-							</SelectContent>
-						</Select>
+						<Controller
+							control={control}
+							name='zone_type'
+							render={({ field }) => (
+								<Select value={field.value} onValueChange={field.onChange}>
+									<SelectTrigger id='zone_type'>
+										<SelectValue placeholder='Select zone type' />
+									</SelectTrigger>
+									<SelectContent>
+										{ZONE_TYPE_OPTIONS.map((option) => (
+											<SelectItem key={option.value} value={option.value}>
+												{option.label}
+											</SelectItem>
+										))}
+									</SelectContent>
+								</Select>
+							)}
+						/>
 					</div>
 
 					{/* Boundary (WKT) */}
 					<div className='space-y-2'>
 						<Label htmlFor='boundary'>
-							Boundary (WKT){' '}
-							{!initialData && <span className='text-destructive'>*</span>}
+							Boundary (WKT) {!initialData && <span className='text-destructive'>*</span>}
 						</Label>
 						<Textarea
 							id='boundary'
 							placeholder='POLYGON((...))  or GeoJSON string'
-							value={formData.boundary}
-							onChange={(e) => handleInputChange('boundary', e.target.value)}
 							rows={3}
-							required={!initialData}
+							aria-invalid={!!errors.boundary}
+							{...register('boundary')}
 						/>
+						{errors.boundary && (
+							<p className='text-xs text-destructive'>{errors.boundary.message}</p>
+						)}
 					</div>
 
 					{/* Center Coordinates */}
 					<div className='grid grid-cols-2 gap-4'>
 						<div className='space-y-2'>
 							<Label htmlFor='center_lat'>
-								Center Latitude{' '}
-								{!initialData && <span className='text-destructive'>*</span>}
+								Center Latitude {!initialData && <span className='text-destructive'>*</span>}
 							</Label>
 							<Input
 								id='center_lat'
 								type='number'
 								step='0.000001'
 								placeholder='37.960077'
-								value={formData.center_latitude}
-								onChange={(e) =>
-									handleInputChange('center_latitude', e.target.value)
-								}
-								required={!initialData}
+								aria-invalid={!!errors.center_latitude}
+								{...register('center_latitude')}
 							/>
+							{errors.center_latitude && (
+								<p className='text-xs text-destructive'>{errors.center_latitude.message}</p>
+							)}
 						</div>
 						<div className='space-y-2'>
 							<Label htmlFor='center_lng'>
-								Center Longitude{' '}
-								{!initialData && <span className='text-destructive'>*</span>}
+								Center Longitude {!initialData && <span className='text-destructive'>*</span>}
 							</Label>
 							<Input
 								id='center_lng'
 								type='number'
 								step='0.000001'
 								placeholder='58.326063'
-								value={formData.center_longitude}
-								onChange={(e) =>
-									handleInputChange('center_longitude', e.target.value)
-								}
-								required={!initialData}
+								aria-invalid={!!errors.center_longitude}
+								{...register('center_longitude')}
 							/>
+							{errors.center_longitude && (
+								<p className='text-xs text-destructive'>{errors.center_longitude.message}</p>
+							)}
 						</div>
 					</div>
 
 					{/* Priority */}
 					<div className='space-y-2'>
 						<Label htmlFor='priority'>Priority</Label>
-						<Input
-							id='priority'
-							type='number'
-							min='0'
-							placeholder='0'
-							value={formData.priority}
-							onChange={(e) => handleInputChange('priority', e.target.value)}
-						/>
+						<Input id='priority' type='number' min='0' placeholder='0' {...register('priority')} />
 						<p className='text-xs text-muted-foreground'>
 							Higher priority zones take precedence when overlapping
 						</p>
@@ -290,12 +294,16 @@ export function ZoneFormDialog({
 
 					{/* Active Status */}
 					<div className='flex items-center space-x-2'>
-						<Switch
-							id='is_active'
-							checked={formData.is_active}
-							onCheckedChange={(checked) =>
-								handleInputChange('is_active', checked)
-							}
+						<Controller
+							control={control}
+							name='is_active'
+							render={({ field }) => (
+								<Switch
+									id='is_active'
+									checked={field.value}
+									onCheckedChange={field.onChange}
+								/>
+							)}
 						/>
 						<Label htmlFor='is_active' className='cursor-pointer'>
 							Active (zone is available on the platform)
@@ -303,11 +311,7 @@ export function ZoneFormDialog({
 					</div>
 
 					<DialogFooter>
-						<Button
-							type='button'
-							variant='outline'
-							onClick={() => onOpenChange(false)}
-						>
+						<Button type='button' variant='outline' onClick={() => onOpenChange(false)}>
 							Cancel
 						</Button>
 						<Button type='submit' disabled={isSubmitting}>

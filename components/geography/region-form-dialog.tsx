@@ -1,6 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
+import { Controller, useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import { toast } from 'sonner';
 import {
 	Dialog,
@@ -20,6 +23,22 @@ import type {
 	UpdateRegionRequest,
 } from '@/lib/types/geography';
 
+const regionSchema = z.object({
+	name: z.string().trim().min(1, 'Name is required'),
+	code: z.string().trim().min(1, 'Code is required').max(5, 'Max 5 characters'),
+	is_active: z.boolean(),
+});
+
+type RegionFormValues = z.infer<typeof regionSchema>;
+
+function toValues(r?: Region | null): RegionFormValues {
+	return {
+		name: r?.name ?? '',
+		code: r?.code ?? '',
+		is_active: r?.is_active ?? true,
+	};
+}
+
 interface RegionFormDialogProps {
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
@@ -33,58 +52,33 @@ export function RegionFormDialog({
 	initialData,
 	onSubmit,
 }: RegionFormDialogProps) {
-	const [isSubmitting, setIsSubmitting] = useState(false);
-	const [formData, setFormData] = useState({
-		name: initialData?.name || '',
-		code: initialData?.code || '',
-		is_active: initialData?.is_active ?? true,
+	const {
+		register,
+		handleSubmit,
+		control,
+		reset,
+		formState: { errors, isSubmitting },
+	} = useForm<RegionFormValues>({
+		resolver: zodResolver(regionSchema),
+		defaultValues: toValues(initialData),
 	});
 
-	// Reset form state to initialData when the dialog opens. See
-	// https://react.dev/learn/you-might-not-need-an-effect.
-	/* eslint-disable react-hooks/set-state-in-effect */
 	useEffect(() => {
-		if (open) {
-			setFormData({
-				name: initialData?.name || '',
-				code: initialData?.code || '',
-				is_active: initialData?.is_active ?? true,
-			});
-		}
-	}, [open, initialData]);
-	/* eslint-enable react-hooks/set-state-in-effect */
+		if (open) reset(toValues(initialData));
+	}, [open, initialData, reset]);
 
-	const handleInputChange = (field: string, value: string | boolean) => {
-		setFormData((prev) => ({ ...prev, [field]: value }));
-	};
-
-	const handleSubmit = async (e: React.FormEvent) => {
-		e.preventDefault();
-		setIsSubmitting(true);
-
+	const submit = async (v: RegionFormValues) => {
 		try {
-			if (!formData.name || !formData.code) {
-				toast.error('Please fill in all required fields');
-				return;
-			}
-
 			const payload: CreateRegionRequest = {
-				name: formData.name.trim(),
-				code: formData.code.toUpperCase().trim(),
-				is_active: formData.is_active,
+				name: v.name.trim(),
+				code: v.code.toUpperCase().trim(),
+				is_active: v.is_active,
 			};
-
 			await onSubmit(payload);
-
 			toast.success(
-				initialData
-					? 'Region updated successfully'
-					: 'Region created successfully',
-				{
-					description: payload.name,
-				}
+				initialData ? 'Region updated successfully' : 'Region created successfully',
+				{ description: payload.name }
 			);
-
 			onOpenChange(false);
 		} catch (error) {
 			const errorMessage =
@@ -93,12 +87,9 @@ export function RegionFormDialog({
 					: initialData
 						? 'Failed to update region'
 						: 'Failed to create region';
-			toast.error(
-				initialData ? 'Failed to update region' : 'Failed to create region',
-				{ description: errorMessage }
-			);
-		} finally {
-			setIsSubmitting(false);
+			toast.error(initialData ? 'Failed to update region' : 'Failed to create region', {
+				description: errorMessage,
+			});
 		}
 	};
 
@@ -106,16 +97,12 @@ export function RegionFormDialog({
 		<Dialog open={open} onOpenChange={onOpenChange}>
 			<DialogContent size='lg'>
 				<DialogHeader>
-					<DialogTitle>
-						{initialData ? 'Edit Region' : 'Add Region'}
-					</DialogTitle>
+					<DialogTitle>{initialData ? 'Edit Region' : 'Add Region'}</DialogTitle>
 					<DialogDescription>
-						{initialData
-							? 'Update region details'
-							: 'Add a new region to the platform'}
+						{initialData ? 'Update region details' : 'Add a new region to the platform'}
 					</DialogDescription>
 				</DialogHeader>
-				<form onSubmit={handleSubmit} className='space-y-4'>
+				<form onSubmit={handleSubmit(submit)} className='space-y-4'>
 					{/* Name */}
 					<div className='space-y-2'>
 						<Label htmlFor='name'>
@@ -124,10 +111,10 @@ export function RegionFormDialog({
 						<Input
 							id='name'
 							placeholder='Ahal'
-							value={formData.name}
-							onChange={(e) => handleInputChange('name', e.target.value)}
-							required
+							aria-invalid={!!errors.name}
+							{...register('name')}
 						/>
+						{errors.name && <p className='text-xs text-destructive'>{errors.name.message}</p>}
 					</div>
 
 					{/* Code */}
@@ -139,25 +126,29 @@ export function RegionFormDialog({
 							id='code'
 							placeholder='AH'
 							maxLength={5}
-							value={formData.code}
-							onChange={(e) =>
-								handleInputChange('code', e.target.value.toUpperCase())
-							}
-							required
+							className='uppercase'
+							aria-invalid={!!errors.code}
+							{...register('code')}
 						/>
-						<p className='text-xs text-muted-foreground'>
-							Short region code (max 5 characters)
-						</p>
+						{errors.code ? (
+							<p className='text-xs text-destructive'>{errors.code.message}</p>
+						) : (
+							<p className='text-xs text-muted-foreground'>Short region code (max 5 characters)</p>
+						)}
 					</div>
 
 					{/* Active Status */}
 					<div className='flex items-center space-x-2'>
-						<Switch
-							id='is_active'
-							checked={formData.is_active}
-							onCheckedChange={(checked) =>
-								handleInputChange('is_active', checked)
-							}
+						<Controller
+							control={control}
+							name='is_active'
+							render={({ field }) => (
+								<Switch
+									id='is_active'
+									checked={field.value}
+									onCheckedChange={field.onChange}
+								/>
+							)}
 						/>
 						<Label htmlFor='is_active' className='cursor-pointer'>
 							Active (region is available on the platform)
@@ -165,11 +156,7 @@ export function RegionFormDialog({
 					</div>
 
 					<DialogFooter>
-						<Button
-							type='button'
-							variant='outline'
-							onClick={() => onOpenChange(false)}
-						>
+						<Button type='button' variant='outline' onClick={() => onOpenChange(false)}>
 							Cancel
 						</Button>
 						<Button type='submit' disabled={isSubmitting}>

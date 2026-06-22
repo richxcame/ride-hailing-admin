@@ -1,6 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
+import { Controller, useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import { toast } from 'sonner';
 import {
 	Dialog,
@@ -20,6 +23,38 @@ import type {
 	UpdateCountryRequest,
 } from '@/lib/types/geography';
 
+const PAYMENT_METHODS = ['cash', 'card', 'wallet', 'stripe'] as const;
+
+const countrySchema = z.object({
+	name: z.string().trim().min(1, 'Name is required'),
+	native_name: z.string(),
+	code: z.string().trim().length(2, 'Must be a 2-letter ISO code'),
+	code3: z.string().trim().length(3, 'Must be a 3-letter ISO code'),
+	currency_code: z.string().trim().min(1, 'Currency code is required'),
+	default_language: z.string(),
+	phone_prefix: z.string().trim().min(1, 'Phone prefix is required'),
+	timezone: z.string().trim().min(1, 'Timezone is required'),
+	is_active: z.boolean(),
+	payment_methods: z.array(z.string()).min(1, 'Select at least one payment method'),
+});
+
+type CountryFormValues = z.infer<typeof countrySchema>;
+
+function toValues(c?: Country | null): CountryFormValues {
+	return {
+		name: c?.name ?? '',
+		native_name: c?.native_name ?? '',
+		code: c?.code ?? '',
+		code3: c?.code3 ?? '',
+		currency_code: c?.currency_code ?? '',
+		default_language: c?.default_language ?? '',
+		phone_prefix: c?.phone_prefix ?? '',
+		timezone: c?.timezone ?? '',
+		is_active: c?.is_active ?? true,
+		payment_methods: c?.payment_methods?.length ? c.payment_methods : ['cash'],
+	};
+}
+
 interface CountryFormDialogProps {
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
@@ -33,100 +68,44 @@ export function CountryFormDialog({
 	initialData,
 	onSubmit,
 }: CountryFormDialogProps) {
-	const [isSubmitting, setIsSubmitting] = useState(false);
-	const [formData, setFormData] = useState({
-		name: initialData?.name || '',
-		native_name: initialData?.native_name || '',
-		code: initialData?.code || '',
-		code3: initialData?.code3 || '',
-		currency_code: initialData?.currency_code || '',
-		default_language: initialData?.default_language || '',
-		phone_prefix: initialData?.phone_prefix || '',
-		timezone: initialData?.timezone || '',
-		is_active: initialData?.is_active ?? true,
+	const {
+		register,
+		handleSubmit,
+		control,
+		reset,
+		formState: { errors, isSubmitting },
+	} = useForm<CountryFormValues>({
+		resolver: zodResolver(countrySchema),
+		defaultValues: toValues(initialData),
 	});
 
-	const getInitialMethods = (data?: Country | null): string[] => {
-		// Backend returns/accepts a flat string array; default to ['cash'].
-		return data?.payment_methods?.length ? data.payment_methods : ['cash'];
-	};
-
-	const [paymentMethods, setPaymentMethods] = useState<string[]>(getInitialMethods(initialData));
-
-	// Reset form state to initialData when the dialog opens. See
-	// https://react.dev/learn/you-might-not-need-an-effect.
-	/* eslint-disable react-hooks/set-state-in-effect */
+	// Reset to the latest record whenever the dialog (re)opens. reset() is an RHF
+	// method (not a useState setter), so this is free of the set-state-in-effect
+	// warning the old hand-rolled form had to suppress.
 	useEffect(() => {
-		if (open) {
-			setFormData({
-				name: initialData?.name || '',
-				native_name: initialData?.native_name || '',
-				code: initialData?.code || '',
-				code3: initialData?.code3 || '',
-				currency_code: initialData?.currency_code || '',
-				default_language: initialData?.default_language || '',
-				phone_prefix: initialData?.phone_prefix || '',
-				timezone: initialData?.timezone || '',
-				is_active: initialData?.is_active ?? true,
-			});
-			setPaymentMethods(getInitialMethods(initialData));
-		}
-	}, [open, initialData]);
-	/* eslint-enable react-hooks/set-state-in-effect */
+		if (open) reset(toValues(initialData));
+	}, [open, initialData, reset]);
 
-	const handleInputChange = (field: string, value: string | boolean) => {
-		setFormData((prev) => ({ ...prev, [field]: value }));
-	};
-
-	const togglePaymentMethod = (method: string) => {
-		setPaymentMethods((prev) =>
-			prev.includes(method)
-				? prev.filter((m) => m !== method)
-				: [...prev, method]
-		);
-	};
-
-	const handleSubmit = async (e: React.FormEvent) => {
-		e.preventDefault();
-		setIsSubmitting(true);
-
+	const submit = async (v: CountryFormValues) => {
 		try {
-			if (
-				!formData.name ||
-				!formData.code ||
-				!formData.code3 ||
-				!formData.currency_code ||
-				!formData.phone_prefix ||
-				!formData.timezone
-			) {
-				toast.error('Please fill in all required fields');
-				return;
-			}
-
 			const payload: CreateCountryRequest = {
-				name: formData.name.trim(),
-				native_name: formData.native_name.trim(),
-				code: formData.code.toUpperCase().trim(),
-				code3: formData.code3.toUpperCase().trim(),
-				currency_code: formData.currency_code.toUpperCase().trim(),
-				default_language: formData.default_language.trim(),
-				phone_prefix: formData.phone_prefix.trim(),
-				timezone: formData.timezone.trim(),
-				is_active: formData.is_active,
-				payment_methods: paymentMethods,
+				name: v.name.trim(),
+				native_name: v.native_name.trim(),
+				code: v.code.toUpperCase().trim(),
+				code3: v.code3.toUpperCase().trim(),
+				currency_code: v.currency_code.toUpperCase().trim(),
+				default_language: v.default_language.trim(),
+				phone_prefix: v.phone_prefix.trim(),
+				timezone: v.timezone.trim(),
+				is_active: v.is_active,
+				payment_methods: v.payment_methods,
 			};
 
 			await onSubmit(payload);
-
 			toast.success(
-				initialData
-					? 'Country updated successfully'
-					: 'Country created successfully',
-				{
-					description: payload.name,
-				}
+				initialData ? 'Country updated successfully' : 'Country created successfully',
+				{ description: payload.name }
 			);
-
 			onOpenChange(false);
 		} catch (error) {
 			const errorMessage =
@@ -135,12 +114,9 @@ export function CountryFormDialog({
 					: initialData
 						? 'Failed to update country'
 						: 'Failed to create country';
-			toast.error(
-				initialData ? 'Failed to update country' : 'Failed to create country',
-				{ description: errorMessage }
-			);
-		} finally {
-			setIsSubmitting(false);
+			toast.error(initialData ? 'Failed to update country' : 'Failed to create country', {
+				description: errorMessage,
+			});
 		}
 	};
 
@@ -148,16 +124,12 @@ export function CountryFormDialog({
 		<Dialog open={open} onOpenChange={onOpenChange}>
 			<DialogContent size='lg'>
 				<DialogHeader>
-					<DialogTitle>
-						{initialData ? 'Edit Country' : 'Add Country'}
-					</DialogTitle>
+					<DialogTitle>{initialData ? 'Edit Country' : 'Add Country'}</DialogTitle>
 					<DialogDescription>
-						{initialData
-							? 'Update country details'
-							: 'Add a new country to the platform'}
+						{initialData ? 'Update country details' : 'Add a new country to the platform'}
 					</DialogDescription>
 				</DialogHeader>
-				<form onSubmit={handleSubmit} className='space-y-4'>
+				<form onSubmit={handleSubmit(submit)} className='space-y-4'>
 					{/* Name & Native Name */}
 					<div className='grid grid-cols-2 gap-4'>
 						<div className='space-y-2'>
@@ -167,22 +139,15 @@ export function CountryFormDialog({
 							<Input
 								id='name'
 								placeholder='Turkmenistan'
-								value={formData.name}
-								onChange={(e) => handleInputChange('name', e.target.value)}
-								required
+								aria-invalid={!!errors.name}
+								{...register('name')}
 							/>
+							{errors.name && <p className='text-xs text-destructive'>{errors.name.message}</p>}
 						</div>
 
 						<div className='space-y-2'>
 							<Label htmlFor='native_name'>Native Name</Label>
-							<Input
-								id='native_name'
-								placeholder='Türkmenistan'
-								value={formData.native_name}
-								onChange={(e) =>
-									handleInputChange('native_name', e.target.value)
-								}
-							/>
+							<Input id='native_name' placeholder='Türkmenistan' {...register('native_name')} />
 						</div>
 					</div>
 
@@ -196,12 +161,11 @@ export function CountryFormDialog({
 								id='code'
 								placeholder='TM'
 								maxLength={2}
-								value={formData.code}
-								onChange={(e) =>
-									handleInputChange('code', e.target.value.toUpperCase())
-								}
-								required
+								className='uppercase'
+								aria-invalid={!!errors.code}
+								{...register('code')}
 							/>
+							{errors.code && <p className='text-xs text-destructive'>{errors.code.message}</p>}
 						</div>
 
 						<div className='space-y-2'>
@@ -212,12 +176,11 @@ export function CountryFormDialog({
 								id='code3'
 								placeholder='TKM'
 								maxLength={3}
-								value={formData.code3}
-								onChange={(e) =>
-									handleInputChange('code3', e.target.value.toUpperCase())
-								}
-								required
+								className='uppercase'
+								aria-invalid={!!errors.code3}
+								{...register('code3')}
 							/>
+							{errors.code3 && <p className='text-xs text-destructive'>{errors.code3.message}</p>}
 						</div>
 					</div>
 
@@ -230,24 +193,18 @@ export function CountryFormDialog({
 							<Input
 								id='currency_code'
 								placeholder='TMT'
-								value={formData.currency_code}
-								onChange={(e) =>
-									handleInputChange('currency_code', e.target.value.toUpperCase())
-								}
-								required
+								className='uppercase'
+								aria-invalid={!!errors.currency_code}
+								{...register('currency_code')}
 							/>
+							{errors.currency_code && (
+								<p className='text-xs text-destructive'>{errors.currency_code.message}</p>
+							)}
 						</div>
 
 						<div className='space-y-2'>
 							<Label htmlFor='default_language'>Default Language</Label>
-							<Input
-								id='default_language'
-								placeholder='tk'
-								value={formData.default_language}
-								onChange={(e) =>
-									handleInputChange('default_language', e.target.value)
-								}
-							/>
+							<Input id='default_language' placeholder='tk' {...register('default_language')} />
 						</div>
 					</div>
 
@@ -260,12 +217,12 @@ export function CountryFormDialog({
 							<Input
 								id='phone_prefix'
 								placeholder='+993'
-								value={formData.phone_prefix}
-								onChange={(e) =>
-									handleInputChange('phone_prefix', e.target.value)
-								}
-								required
+								aria-invalid={!!errors.phone_prefix}
+								{...register('phone_prefix')}
 							/>
+							{errors.phone_prefix && (
+								<p className='text-xs text-destructive'>{errors.phone_prefix.message}</p>
+							)}
 						</div>
 
 						<div className='space-y-2'>
@@ -275,44 +232,65 @@ export function CountryFormDialog({
 							<Input
 								id='timezone'
 								placeholder='Asia/Ashgabat'
-								value={formData.timezone}
-								onChange={(e) => handleInputChange('timezone', e.target.value)}
-								required
+								aria-invalid={!!errors.timezone}
+								{...register('timezone')}
 							/>
+							{errors.timezone && (
+								<p className='text-xs text-destructive'>{errors.timezone.message}</p>
+							)}
 						</div>
 					</div>
 
 					{/* Payment Methods */}
 					<div className='space-y-2'>
 						<Label>Payment Methods</Label>
-						<div className='flex gap-2'>
-							{['cash', 'card', 'wallet', 'stripe'].map((method) => (
-								<Button
-									key={method}
-									type='button'
-									variant={
-										paymentMethods.includes(method) ? 'default' : 'outline'
-									}
-									size='sm'
-									onClick={() => togglePaymentMethod(method)}
-								>
-									{method.charAt(0).toUpperCase() + method.slice(1)}
-								</Button>
-							))}
-						</div>
-						<p className='text-xs text-muted-foreground'>
-							Select accepted payment methods
-						</p>
+						<Controller
+							control={control}
+							name='payment_methods'
+							render={({ field }) => (
+								<div className='flex gap-2'>
+									{PAYMENT_METHODS.map((method) => {
+										const selected = field.value.includes(method);
+										return (
+											<Button
+												key={method}
+												type='button'
+												variant={selected ? 'default' : 'outline'}
+												size='sm'
+												onClick={() =>
+													field.onChange(
+														selected
+															? field.value.filter((m) => m !== method)
+															: [...field.value, method]
+													)
+												}
+											>
+												{method.charAt(0).toUpperCase() + method.slice(1)}
+											</Button>
+										);
+									})}
+								</div>
+							)}
+						/>
+						{errors.payment_methods ? (
+							<p className='text-xs text-destructive'>{errors.payment_methods.message}</p>
+						) : (
+							<p className='text-xs text-muted-foreground'>Select accepted payment methods</p>
+						)}
 					</div>
 
 					{/* Active Status */}
 					<div className='flex items-center space-x-2'>
-						<Switch
-							id='is_active'
-							checked={formData.is_active}
-							onCheckedChange={(checked) =>
-								handleInputChange('is_active', checked)
-							}
+						<Controller
+							control={control}
+							name='is_active'
+							render={({ field }) => (
+								<Switch
+									id='is_active'
+									checked={field.value}
+									onCheckedChange={field.onChange}
+								/>
+							)}
 						/>
 						<Label htmlFor='is_active' className='cursor-pointer'>
 							Active (country is available on the platform)
@@ -320,11 +298,7 @@ export function CountryFormDialog({
 					</div>
 
 					<DialogFooter>
-						<Button
-							type='button'
-							variant='outline'
-							onClick={() => onOpenChange(false)}
-						>
+						<Button type='button' variant='outline' onClick={() => onOpenChange(false)}>
 							Cancel
 						</Button>
 						<Button type='submit' disabled={isSubmitting}>
