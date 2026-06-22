@@ -12,6 +12,9 @@ import {
 } from '@tanstack/react-table';
 import { IconPlus, IconEdit, IconTrash } from '@tabler/icons-react';
 import { toast } from 'sonner';
+import { Controller, useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import { ZoneFee } from '@/lib/types/pricing';
 import { pricingService } from '@/lib/api/pricing.service';
 import { Badge } from '@/components/ui/badge';
@@ -53,21 +56,33 @@ interface PricingZoneFeesTabProps {
 	onRefresh?: () => void;
 }
 
-interface FormData {
-	zone_id: string;
-	fee_type: string;
-	ride_type_id?: string;
-	amount: number;
-	is_percentage: boolean;
-	applies_pickup: boolean;
-	applies_dropoff: boolean;
-	is_active: boolean;
-}
+const zoneFeeSchema = z
+	.object({
+		zone_id: z.string().trim().min(1, 'Zone ID is required'),
+		fee_type: z.string().trim().min(1, 'Fee type is required'),
+		ride_type_id: z.string(),
+		amount: z.string().min(1, 'Amount is required'),
+		is_percentage: z.boolean(),
+		applies_pickup: z.boolean(),
+		applies_dropoff: z.boolean(),
+		is_active: z.boolean(),
+	})
+	.refine((d) => Number(d.amount) > 0, {
+		message: 'Amount must be greater than 0',
+		path: ['amount'],
+	})
+	.refine((d) => d.applies_pickup || d.applies_dropoff, {
+		message: 'Select pickup and/or dropoff',
+		path: ['applies_pickup'],
+	});
 
-const DEFAULT_FORM: FormData = {
+type ZoneFeeFormValues = z.infer<typeof zoneFeeSchema>;
+
+const DEFAULT_VALUES: ZoneFeeFormValues = {
 	zone_id: '',
 	fee_type: 'pickup_fee',
-	amount: 5.0,
+	ride_type_id: '',
+	amount: '5',
 	is_percentage: false,
 	applies_pickup: true,
 	applies_dropoff: false,
@@ -93,8 +108,16 @@ export function PricingZoneFeesTab({
 	// Dialog state
 	const [dialogOpen, setDialogOpen] = useState(false);
 	const [editingItem, setEditingItem] = useState<ZoneFee | null>(null);
-	const [formData, setFormData] = useState<FormData>(DEFAULT_FORM);
-	const [isSubmitting, setIsSubmitting] = useState(false);
+	const {
+		register,
+		handleSubmit,
+		control,
+		reset,
+		formState: { errors, isSubmitting },
+	} = useForm<ZoneFeeFormValues>({
+		resolver: zodResolver(zoneFeeSchema),
+		defaultValues: DEFAULT_VALUES,
+	});
 
 	// Delete state
 	const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -126,17 +149,17 @@ export function PricingZoneFeesTab({
 
 	const handleOpenCreate = () => {
 		setEditingItem(null);
-		setFormData({ ...DEFAULT_FORM, zone_id: filterZoneId || '' });
+		reset({ ...DEFAULT_VALUES, zone_id: filterZoneId || '' });
 		setDialogOpen(true);
 	};
 
 	const handleOpenEdit = (item: ZoneFee) => {
 		setEditingItem(item);
-		setFormData({
+		reset({
 			zone_id: item.zone_id,
 			fee_type: item.fee_type,
-			ride_type_id: item.ride_type_id,
-			amount: item.amount,
+			ride_type_id: item.ride_type_id ?? '',
+			amount: item.amount.toString(),
 			is_percentage: item.is_percentage,
 			applies_pickup: item.applies_pickup,
 			applies_dropoff: item.applies_dropoff,
@@ -145,27 +168,17 @@ export function PricingZoneFeesTab({
 		setDialogOpen(true);
 	};
 
-	const handleSubmit = async () => {
-		if (!formData.zone_id.trim()) {
-			toast.error('Zone ID is required');
-			return;
-		}
-		if (!formData.fee_type.trim()) {
-			toast.error('Fee type is required');
-			return;
-		}
-		if (formData.amount <= 0) {
-			toast.error('Amount must be greater than 0');
-			return;
-		}
-		if (!formData.applies_pickup && !formData.applies_dropoff) {
-			toast.error('At least one of pickup or dropoff must be selected');
-			return;
-		}
-		setIsSubmitting(true);
+	const onSubmit = async (values: ZoneFeeFormValues) => {
 		try {
 			const payload = {
-				...formData,
+				zone_id: values.zone_id.trim(),
+				fee_type: values.fee_type.trim(),
+				ride_type_id: values.ride_type_id || undefined,
+				amount: Number(values.amount),
+				is_percentage: values.is_percentage,
+				applies_pickup: values.applies_pickup,
+				applies_dropoff: values.applies_dropoff,
+				is_active: values.is_active,
 				version_id: versionId,
 			};
 			if (editingItem) {
@@ -184,8 +197,6 @@ export function PricingZoneFeesTab({
 					? 'Failed to update zone fee'
 					: 'Failed to create zone fee',
 			);
-		} finally {
-			setIsSubmitting(false);
 		}
 	};
 
@@ -474,159 +485,142 @@ export function PricingZoneFeesTab({
 								: 'Create a new zone-based fee.'}
 						</DialogDescription>
 					</DialogHeader>
-					<div className='grid gap-4 py-4'>
-						<div className='grid gap-2'>
-							<Label htmlFor='zone_id'>Zone ID</Label>
-							<Input
-								id='zone_id'
-								value={formData.zone_id}
-								onChange={(e) =>
-									setFormData((prev) => ({
-										...prev,
-										zone_id: e.target.value,
-									}))
-								}
-								placeholder='Enter zone ID'
-							/>
-						</div>
-						<div className='grid gap-2'>
-							<Label htmlFor='fee_type'>Fee Type</Label>
-							<Input
-								id='fee_type'
-								value={formData.fee_type}
-								onChange={(e) =>
-									setFormData((prev) => ({
-										...prev,
-										fee_type: e.target.value,
-									}))
-								}
-								placeholder='e.g., pickup_fee, dropoff_fee, toll'
-							/>
-						</div>
-						<div className='grid gap-2'>
-							<Label htmlFor='ride_type_id'>
-								Ride Type ID (optional)
-							</Label>
-							<Input
-								id='ride_type_id'
-								value={formData.ride_type_id ?? ''}
-								onChange={(e) =>
-									setFormData((prev) => ({
-										...prev,
-										ride_type_id:
-											e.target.value || undefined,
-									}))
-								}
-								placeholder='Leave empty for all ride types'
-							/>
-						</div>
-						<div className='grid grid-cols-2 gap-4'>
+					<form onSubmit={handleSubmit(onSubmit)}>
+						<div className='grid gap-4 py-4'>
 							<div className='grid gap-2'>
-								<Label htmlFor='amount'>Amount</Label>
+								<Label htmlFor='zone_id'>Zone ID</Label>
 								<Input
-									id='amount'
-									type='number'
-									step={0.01}
-									min={0}
-									value={formData.amount}
-									onChange={(e) =>
-										setFormData((prev) => ({
-											...prev,
-											amount:
-												parseFloat(e.target.value) || 0,
-										}))
-									}
+									id='zone_id'
+									placeholder='Enter zone ID'
+									aria-invalid={!!errors.zone_id}
+									{...register('zone_id')}
+								/>
+								{errors.zone_id && (
+									<p className='text-xs text-destructive'>{errors.zone_id.message}</p>
+								)}
+							</div>
+							<div className='grid gap-2'>
+								<Label htmlFor='fee_type'>Fee Type</Label>
+								<Input
+									id='fee_type'
+									placeholder='e.g., pickup_fee, dropoff_fee, toll'
+									aria-invalid={!!errors.fee_type}
+									{...register('fee_type')}
+								/>
+								{errors.fee_type && (
+									<p className='text-xs text-destructive'>{errors.fee_type.message}</p>
+								)}
+							</div>
+							<div className='grid gap-2'>
+								<Label htmlFor='ride_type_id'>Ride Type ID (optional)</Label>
+								<Input
+									id='ride_type_id'
+									placeholder='Leave empty for all ride types'
+									{...register('ride_type_id')}
 								/>
 							</div>
-							<div className='flex items-end pb-2'>
-								<div className='flex items-center gap-2'>
-									<Checkbox
-										id='is_percentage'
-										checked={formData.is_percentage}
-										onCheckedChange={(checked) =>
-											setFormData((prev) => ({
-												...prev,
-												is_percentage: !!checked,
-											}))
-										}
+							<div className='grid grid-cols-2 gap-4'>
+								<div className='grid gap-2'>
+									<Label htmlFor='amount'>Amount</Label>
+									<Input
+										id='amount'
+										type='number'
+										step={0.01}
+										min={0}
+										aria-invalid={!!errors.amount}
+										{...register('amount')}
 									/>
-									<Label
-										htmlFor='is_percentage'
-										className='font-normal cursor-pointer'
-									>
-										Percentage
-									</Label>
+									{errors.amount && (
+										<p className='text-xs text-destructive'>{errors.amount.message}</p>
+									)}
+								</div>
+								<div className='flex items-end pb-2'>
+									<div className='flex items-center gap-2'>
+										<Controller
+											control={control}
+											name='is_percentage'
+											render={({ field }) => (
+												<Checkbox
+													id='is_percentage'
+													checked={field.value}
+													onCheckedChange={(c) => field.onChange(!!c)}
+												/>
+											)}
+										/>
+										<Label htmlFor='is_percentage' className='font-normal cursor-pointer'>
+											Percentage
+										</Label>
+									</div>
 								</div>
 							</div>
-						</div>
-						<div className='flex items-center gap-6'>
-							<div className='flex items-center gap-2'>
-								<Checkbox
-									id='applies_pickup'
-									checked={formData.applies_pickup}
-									onCheckedChange={(checked) =>
-										setFormData((prev) => ({
-											...prev,
-											applies_pickup: !!checked,
-										}))
-									}
-								/>
-								<Label
-									htmlFor='applies_pickup'
-									className='font-normal cursor-pointer'
-								>
-									Applies to Pickup
-								</Label>
+							<div className='grid gap-2'>
+								<div className='flex items-center gap-6'>
+									<div className='flex items-center gap-2'>
+										<Controller
+											control={control}
+											name='applies_pickup'
+											render={({ field }) => (
+												<Checkbox
+													id='applies_pickup'
+													checked={field.value}
+													onCheckedChange={(c) => field.onChange(!!c)}
+												/>
+											)}
+										/>
+										<Label htmlFor='applies_pickup' className='font-normal cursor-pointer'>
+											Applies to Pickup
+										</Label>
+									</div>
+									<div className='flex items-center gap-2'>
+										<Controller
+											control={control}
+											name='applies_dropoff'
+											render={({ field }) => (
+												<Checkbox
+													id='applies_dropoff'
+													checked={field.value}
+													onCheckedChange={(c) => field.onChange(!!c)}
+												/>
+											)}
+										/>
+										<Label htmlFor='applies_dropoff' className='font-normal cursor-pointer'>
+											Applies to Dropoff
+										</Label>
+									</div>
+								</div>
+								{errors.applies_pickup && (
+									<p className='text-xs text-destructive'>{errors.applies_pickup.message}</p>
+								)}
 							</div>
-							<div className='flex items-center gap-2'>
-								<Checkbox
-									id='applies_dropoff'
-									checked={formData.applies_dropoff}
-									onCheckedChange={(checked) =>
-										setFormData((prev) => ({
-											...prev,
-											applies_dropoff: !!checked,
-										}))
-									}
+							<div className='flex items-center justify-between'>
+								<Label htmlFor='is_active'>Active</Label>
+								<Controller
+									control={control}
+									name='is_active'
+									render={({ field }) => (
+										<Switch
+											id='is_active'
+											checked={field.value}
+											onCheckedChange={field.onChange}
+										/>
+									)}
 								/>
-								<Label
-									htmlFor='applies_dropoff'
-									className='font-normal cursor-pointer'
-								>
-									Applies to Dropoff
-								</Label>
 							</div>
 						</div>
-						<div className='flex items-center justify-between'>
-							<Label htmlFor='is_active'>Active</Label>
-							<Switch
-								id='is_active'
-								checked={formData.is_active}
-								onCheckedChange={(checked) =>
-									setFormData((prev) => ({
-										...prev,
-										is_active: checked,
-									}))
-								}
-							/>
-						</div>
-					</div>
-					<DialogFooter>
-						<Button
-							variant='outline'
-							onClick={() => setDialogOpen(false)}
-							disabled={isSubmitting}
-						>
-							Cancel
-						</Button>
-						<Button onClick={handleSubmit} disabled={isSubmitting}>
-							{isSubmitting
-								? 'Saving...'
-								: editingItem
-									? 'Update'
-									: 'Create'}
-						</Button>
-					</DialogFooter>
+						<DialogFooter>
+							<Button
+								type='button'
+								variant='outline'
+								onClick={() => setDialogOpen(false)}
+								disabled={isSubmitting}
+							>
+								Cancel
+							</Button>
+							<Button type='submit' disabled={isSubmitting}>
+								{isSubmitting ? 'Saving...' : editingItem ? 'Update' : 'Create'}
+							</Button>
+						</DialogFooter>
+					</form>
 				</DialogContent>
 			</Dialog>
 
