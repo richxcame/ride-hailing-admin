@@ -2,6 +2,9 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { toast } from 'sonner';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import {
 	ColumnDef,
 	SortingState,
@@ -301,6 +304,18 @@ const createColumns = (): ColumnDef<Transaction>[] => [
 
 const columns = createColumns();
 
+const refundSchema = z
+	.object({
+		amount: z.string(),
+		reason: z.string().trim().min(1, 'Reason is required'),
+	})
+	.refine((d) => !d.amount || Number(d.amount) > 0, {
+		message: 'Amount must be greater than 0',
+		path: ['amount'],
+	});
+
+type RefundFormValues = z.infer<typeof refundSchema>;
+
 export default function PaymentsPage() {
 	// Data state
 	const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -332,9 +347,15 @@ export default function PaymentsPage() {
 	// Refund dialog state
 	const [refundDialogOpen, setRefundDialogOpen] = useState(false);
 	const [transactionToRefund, setTransactionToRefund] = useState<Transaction | null>(null);
-	const [refundAmount, setRefundAmount] = useState('');
-	const [refundReason, setRefundReason] = useState('');
-	const [isRefunding, setIsRefunding] = useState(false);
+	const {
+		register,
+		handleSubmit,
+		reset,
+		formState: { errors, isSubmitting: isRefunding },
+	} = useForm<RefundFormValues>({
+		resolver: zodResolver(refundSchema),
+		defaultValues: { amount: '', reason: '' },
+	});
 
 	// Fetch transactions
 	const fetchTransactions = useCallback(async () => {
@@ -408,25 +429,17 @@ export default function PaymentsPage() {
 	// Open refund dialog
 	const handleRefundClick = (transaction: Transaction) => {
 		setTransactionToRefund(transaction);
-		setRefundAmount('');
-		setRefundReason('');
+		reset({ amount: '', reason: '' });
 		setRefundDialogOpen(true);
 	};
 
 	// Confirm refund
-	const handleConfirmRefund = async () => {
-		if (!transactionToRefund || !refundReason.trim()) {
-			toast.error('Please provide a reason for the refund');
-			return;
-		}
-
+	const onRefundSubmit = async (values: RefundFormValues) => {
+		if (!transactionToRefund) return;
 		try {
-			setIsRefunding(true);
-			const data: RefundRequest = {
-				reason: refundReason,
-			};
-			if (refundAmount && parseFloat(refundAmount) > 0) {
-				data.amount = parseFloat(refundAmount);
+			const data: RefundRequest = { reason: values.reason.trim() };
+			if (values.amount && Number(values.amount) > 0) {
+				data.amount = Number(values.amount);
 			}
 			await paymentsService.refund(transactionToRefund.id, data);
 			toast.success('Refund processed successfully', {
@@ -434,8 +447,6 @@ export default function PaymentsPage() {
 			});
 			setRefundDialogOpen(false);
 			setTransactionToRefund(null);
-			setRefundAmount('');
-			setRefundReason('');
 			fetchTransactions();
 			fetchStats();
 
@@ -446,8 +457,6 @@ export default function PaymentsPage() {
 		} catch (error) {
 			const errorMessage = error instanceof Error ? error.message : 'Failed to process refund';
 			toast.error('Failed to process refund', { description: errorMessage });
-		} finally {
-			setIsRefunding(false);
 		}
 	};
 
@@ -969,52 +978,62 @@ export default function PaymentsPage() {
 							{' '}({formatCurrency(transactionToRefund?.amount ?? 0)})
 						</DialogDescription>
 					</DialogHeader>
-					<div className='space-y-4 py-4'>
-						<div className='space-y-2'>
-							<Label htmlFor='refund-amount'>
-								Refund Amount (optional, leave empty for full refund)
-							</Label>
-							<Input
-								id='refund-amount'
-								type='number'
-								step='0.01'
-								min='0.01'
-								max={transactionToRefund?.amount}
-								placeholder={`Full amount: ${formatCurrency(transactionToRefund?.amount ?? 0)}`}
-								value={refundAmount}
-								onChange={(e) => setRefundAmount(e.target.value)}
-							/>
-							<p className='text-xs text-muted-foreground'>
-								Maximum refund: {formatCurrency(transactionToRefund?.amount ?? 0)}
-							</p>
+					<form onSubmit={handleSubmit(onRefundSubmit)}>
+						<div className='space-y-4 py-4'>
+							<div className='space-y-2'>
+								<Label htmlFor='refund-amount'>
+									Refund Amount (optional, leave empty for full refund)
+								</Label>
+								<Input
+									id='refund-amount'
+									type='number'
+									step='0.01'
+									min='0.01'
+									max={transactionToRefund?.amount}
+									placeholder={`Full amount: ${formatCurrency(transactionToRefund?.amount ?? 0)}`}
+									aria-invalid={!!errors.amount}
+									{...register('amount')}
+								/>
+								{errors.amount ? (
+									<p className='text-xs text-destructive'>{errors.amount.message}</p>
+								) : (
+									<p className='text-xs text-muted-foreground'>
+										Maximum refund: {formatCurrency(transactionToRefund?.amount ?? 0)}
+									</p>
+								)}
+							</div>
+							<div className='space-y-2'>
+								<Label htmlFor='refund-reason'>Reason for refund</Label>
+								<Textarea
+									id='refund-reason'
+									placeholder='Enter the reason for this refund...'
+									rows={3}
+									aria-invalid={!!errors.reason}
+									{...register('reason')}
+								/>
+								{errors.reason && (
+									<p className='text-xs text-destructive'>{errors.reason.message}</p>
+								)}
+							</div>
 						</div>
-						<div className='space-y-2'>
-							<Label htmlFor='refund-reason'>Reason for refund</Label>
-							<Textarea
-								id='refund-reason'
-								placeholder='Enter the reason for this refund...'
-								value={refundReason}
-								onChange={(e) => setRefundReason(e.target.value)}
-								rows={3}
-							/>
-						</div>
-					</div>
-					<DialogFooter>
-						<Button
-							variant='outline'
-							onClick={() => setRefundDialogOpen(false)}
-							disabled={isRefunding}
-						>
-							Cancel
-						</Button>
-						<Button
-							onClick={handleConfirmRefund}
-							disabled={isRefunding || !refundReason.trim()}
-							className='bg-orange-600 text-white hover:bg-orange-700'
-						>
-							{isRefunding ? 'Processing...' : 'Confirm Refund'}
-						</Button>
-					</DialogFooter>
+						<DialogFooter>
+							<Button
+								type='button'
+								variant='outline'
+								onClick={() => setRefundDialogOpen(false)}
+								disabled={isRefunding}
+							>
+								Cancel
+							</Button>
+							<Button
+								type='submit'
+								disabled={isRefunding}
+								className='bg-orange-600 text-white hover:bg-orange-700'
+							>
+								{isRefunding ? 'Processing...' : 'Confirm Refund'}
+							</Button>
+						</DialogFooter>
+					</form>
 				</DialogContent>
 			</Dialog>
 		</div>
