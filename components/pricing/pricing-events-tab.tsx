@@ -12,6 +12,9 @@ import {
 } from '@tanstack/react-table';
 import { IconPlus, IconEdit, IconTrash } from '@tabler/icons-react';
 import { toast } from 'sonner';
+import { Controller, useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import { EventMultiplier, EventType } from '@/lib/types/pricing';
 import { pricingService } from '@/lib/api/pricing.service';
 import { Badge } from '@/components/ui/badge';
@@ -59,29 +62,43 @@ interface PricingEventsTabProps {
 	onRefresh?: () => void;
 }
 
-interface FormData {
-	event_name: string;
-	event_type: EventType;
-	starts_at: string;
-	ends_at: string;
-	pre_event_minutes: number;
-	post_event_minutes: number;
-	multiplier: number;
-	expected_demand_increase?: number;
-	is_active: boolean;
-	city_id?: string;
-	zone_id?: string;
-}
+const eventSchema = z
+	.object({
+		event_name: z.string().trim().min(1, 'Event name is required'),
+		event_type: z.enum(['sports', 'concert', 'conference', 'holiday', 'festival', 'other']),
+		starts_at: z.string().min(1, 'Start time is required'),
+		ends_at: z.string().min(1, 'End time is required'),
+		pre_event_minutes: z.string(),
+		post_event_minutes: z.string(),
+		multiplier: z.string().min(1, 'Multiplier is required'),
+		expected_demand_increase: z.string(),
+		is_active: z.boolean(),
+		city_id: z.string(),
+		zone_id: z.string(),
+	})
+	.refine((d) => !d.starts_at || !d.ends_at || d.ends_at > d.starts_at, {
+		message: 'End time must be after start time',
+		path: ['ends_at'],
+	})
+	.refine((d) => Number(d.multiplier) >= 1, {
+		message: 'Multiplier must be at least 1.0',
+		path: ['multiplier'],
+	});
 
-const DEFAULT_FORM: FormData = {
+type EventFormValues = z.infer<typeof eventSchema>;
+
+const DEFAULT_VALUES: EventFormValues = {
 	event_name: '',
 	event_type: 'concert',
 	starts_at: '',
 	ends_at: '',
-	pre_event_minutes: 60,
-	post_event_minutes: 30,
-	multiplier: 1.5,
+	pre_event_minutes: '60',
+	post_event_minutes: '30',
+	multiplier: '1.5',
+	expected_demand_increase: '',
 	is_active: true,
+	city_id: '',
+	zone_id: '',
 };
 
 const EVENT_TYPE_COLORS: Record<EventType, string> = {
@@ -128,8 +145,16 @@ export function PricingEventsTab({ versionId, onRefresh }: PricingEventsTabProps
 	// Dialog state
 	const [dialogOpen, setDialogOpen] = useState(false);
 	const [editingItem, setEditingItem] = useState<EventMultiplier | null>(null);
-	const [formData, setFormData] = useState<FormData>(DEFAULT_FORM);
-	const [isSubmitting, setIsSubmitting] = useState(false);
+	const {
+		register,
+		handleSubmit,
+		control,
+		reset,
+		formState: { errors, isSubmitting },
+	} = useForm<EventFormValues>({
+		resolver: zodResolver(eventSchema),
+		defaultValues: DEFAULT_VALUES,
+	});
 
 	// Delete state
 	const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -166,51 +191,44 @@ export function PricingEventsTab({ versionId, onRefresh }: PricingEventsTabProps
 
 	const handleOpenCreate = () => {
 		setEditingItem(null);
-		setFormData({ ...DEFAULT_FORM });
+		reset(DEFAULT_VALUES);
 		setDialogOpen(true);
 	};
 
 	const handleOpenEdit = (item: EventMultiplier) => {
 		setEditingItem(item);
-		setFormData({
+		reset({
 			event_name: item.event_name,
 			event_type: item.event_type,
 			starts_at: item.starts_at ? new Date(item.starts_at).toISOString().slice(0, 16) : '',
 			ends_at: item.ends_at ? new Date(item.ends_at).toISOString().slice(0, 16) : '',
-			pre_event_minutes: item.pre_event_minutes,
-			post_event_minutes: item.post_event_minutes,
-			multiplier: item.multiplier,
-			expected_demand_increase: item.expected_demand_increase,
+			pre_event_minutes: item.pre_event_minutes.toString(),
+			post_event_minutes: item.post_event_minutes.toString(),
+			multiplier: item.multiplier.toString(),
+			expected_demand_increase: item.expected_demand_increase?.toString() ?? '',
 			is_active: item.is_active,
-			city_id: item.city_id,
-			zone_id: item.zone_id,
+			city_id: item.city_id ?? '',
+			zone_id: item.zone_id ?? '',
 		});
 		setDialogOpen(true);
 	};
 
-	const handleSubmit = async () => {
-		if (!formData.event_name.trim()) {
-			toast.error('Event name is required');
-			return;
-		}
-		if (!formData.starts_at || !formData.ends_at) {
-			toast.error('Start and end times are required');
-			return;
-		}
-		if (formData.ends_at <= formData.starts_at) {
-			toast.error('End time must be after start time');
-			return;
-		}
-		if (formData.multiplier < 1.0) {
-			toast.error('Multiplier must be at least 1.0');
-			return;
-		}
-		setIsSubmitting(true);
+	const onSubmit = async (values: EventFormValues) => {
 		try {
 			const payload = {
-				...formData,
-				starts_at: new Date(formData.starts_at).toISOString(),
-				ends_at: new Date(formData.ends_at).toISOString(),
+				event_name: values.event_name.trim(),
+				event_type: values.event_type,
+				starts_at: new Date(values.starts_at).toISOString(),
+				ends_at: new Date(values.ends_at).toISOString(),
+				pre_event_minutes: Number(values.pre_event_minutes) || 0,
+				post_event_minutes: Number(values.post_event_minutes) || 0,
+				multiplier: Number(values.multiplier),
+				expected_demand_increase: values.expected_demand_increase
+					? Number(values.expected_demand_increase)
+					: undefined,
+				is_active: values.is_active,
+				city_id: values.city_id || undefined,
+				zone_id: values.zone_id || undefined,
 				version_id: versionId,
 			};
 			if (editingItem) {
@@ -227,8 +245,6 @@ export function PricingEventsTab({ versionId, onRefresh }: PricingEventsTabProps
 			toast.error(
 				editingItem ? 'Failed to update event multiplier' : 'Failed to create event multiplier',
 			);
-		} finally {
-			setIsSubmitting(false);
 		}
 	};
 
@@ -474,208 +490,155 @@ export function PricingEventsTab({ versionId, onRefresh }: PricingEventsTabProps
 								: 'Create a new event-based pricing multiplier.'}
 						</DialogDescription>
 					</DialogHeader>
-					<div className='grid gap-4 py-4'>
-						<div className='grid gap-2'>
-							<Label htmlFor='event_name'>Event Name</Label>
-							<Input
-								id='event_name'
-								value={formData.event_name}
-								onChange={(e) =>
-									setFormData((prev) => ({
-										...prev,
-										event_name: e.target.value,
-									}))
-								}
-								placeholder='e.g., Super Bowl LVIII'
-							/>
+					<form onSubmit={handleSubmit(onSubmit)}>
+						<div className='grid gap-4 py-4'>
+							<div className='grid gap-2'>
+								<Label htmlFor='event_name'>Event Name</Label>
+								<Input
+									id='event_name'
+									placeholder='e.g., Super Bowl LVIII'
+									aria-invalid={!!errors.event_name}
+									{...register('event_name')}
+								/>
+								{errors.event_name && (
+									<p className='text-xs text-destructive'>{errors.event_name.message}</p>
+								)}
+							</div>
+							<div className='grid gap-2'>
+								<Label htmlFor='event_type'>Event Type</Label>
+								<Controller
+									control={control}
+									name='event_type'
+									render={({ field }) => (
+										<Select value={field.value} onValueChange={field.onChange}>
+											<SelectTrigger id='event_type'>
+												<SelectValue placeholder='Select event type' />
+											</SelectTrigger>
+											<SelectContent>
+												<SelectItem value='sports'>Sports</SelectItem>
+												<SelectItem value='concert'>Concert</SelectItem>
+												<SelectItem value='conference'>Conference</SelectItem>
+												<SelectItem value='holiday'>Holiday</SelectItem>
+												<SelectItem value='festival'>Festival</SelectItem>
+												<SelectItem value='other'>Other</SelectItem>
+											</SelectContent>
+										</Select>
+									)}
+								/>
+							</div>
+							<div className='grid grid-cols-2 gap-4'>
+								<div className='grid gap-2'>
+									<Label htmlFor='starts_at'>Start Time</Label>
+									<Input
+										id='starts_at'
+										type='datetime-local'
+										aria-invalid={!!errors.starts_at}
+										{...register('starts_at')}
+									/>
+									{errors.starts_at && (
+										<p className='text-xs text-destructive'>{errors.starts_at.message}</p>
+									)}
+								</div>
+								<div className='grid gap-2'>
+									<Label htmlFor='ends_at'>End Time</Label>
+									<Input
+										id='ends_at'
+										type='datetime-local'
+										aria-invalid={!!errors.ends_at}
+										{...register('ends_at')}
+									/>
+									{errors.ends_at && (
+										<p className='text-xs text-destructive'>{errors.ends_at.message}</p>
+									)}
+								</div>
+							</div>
+							<div className='grid grid-cols-2 gap-4'>
+								<div className='grid gap-2'>
+									<Label htmlFor='pre_event_minutes'>Pre-Event Buffer (minutes)</Label>
+									<Input
+										id='pre_event_minutes'
+										type='number'
+										min={0}
+										{...register('pre_event_minutes')}
+									/>
+								</div>
+								<div className='grid gap-2'>
+									<Label htmlFor='post_event_minutes'>Post-Event Buffer (minutes)</Label>
+									<Input
+										id='post_event_minutes'
+										type='number'
+										min={0}
+										{...register('post_event_minutes')}
+									/>
+								</div>
+							</div>
+							<div className='grid grid-cols-2 gap-4'>
+								<div className='grid gap-2'>
+									<Label htmlFor='multiplier'>Multiplier</Label>
+									<Input
+										id='multiplier'
+										type='number'
+										step={0.1}
+										min={1.0}
+										aria-invalid={!!errors.multiplier}
+										{...register('multiplier')}
+									/>
+									{errors.multiplier && (
+										<p className='text-xs text-destructive'>{errors.multiplier.message}</p>
+									)}
+								</div>
+								<div className='grid gap-2'>
+									<Label htmlFor='expected_demand_increase'>
+										Expected Demand Increase (%)
+									</Label>
+									<Input
+										id='expected_demand_increase'
+										type='number'
+										min={0}
+										placeholder='Optional'
+										{...register('expected_demand_increase')}
+									/>
+								</div>
+							</div>
+							<div className='grid grid-cols-2 gap-4'>
+								<div className='grid gap-2'>
+									<Label htmlFor='city_id'>City ID (optional)</Label>
+									<Input id='city_id' placeholder='Enter city ID' {...register('city_id')} />
+								</div>
+								<div className='grid gap-2'>
+									<Label htmlFor='zone_id'>Zone ID (optional)</Label>
+									<Input id='zone_id' placeholder='Enter zone ID' {...register('zone_id')} />
+								</div>
+							</div>
+							<div className='flex items-center justify-between'>
+								<Label htmlFor='is_active'>Active</Label>
+								<Controller
+									control={control}
+									name='is_active'
+									render={({ field }) => (
+										<Switch
+											id='is_active'
+											checked={field.value}
+											onCheckedChange={field.onChange}
+										/>
+									)}
+								/>
+							</div>
 						</div>
-						<div className='grid gap-2'>
-							<Label htmlFor='event_type'>Event Type</Label>
-							<Select
-								value={formData.event_type}
-								onValueChange={(value) =>
-									setFormData((prev) => ({
-										...prev,
-										event_type: value as EventType,
-									}))
-								}
+						<DialogFooter>
+							<Button
+								type='button'
+								variant='outline'
+								onClick={() => setDialogOpen(false)}
+								disabled={isSubmitting}
 							>
-								<SelectTrigger>
-									<SelectValue placeholder='Select event type' />
-								</SelectTrigger>
-								<SelectContent>
-									<SelectItem value='sports'>Sports</SelectItem>
-									<SelectItem value='concert'>Concert</SelectItem>
-									<SelectItem value='conference'>Conference</SelectItem>
-									<SelectItem value='holiday'>Holiday</SelectItem>
-									<SelectItem value='festival'>Festival</SelectItem>
-									<SelectItem value='other'>Other</SelectItem>
-								</SelectContent>
-							</Select>
-						</div>
-						<div className='grid grid-cols-2 gap-4'>
-							<div className='grid gap-2'>
-								<Label htmlFor='starts_at'>Start Time</Label>
-								<Input
-									id='starts_at'
-									type='datetime-local'
-									value={formData.starts_at}
-									onChange={(e) =>
-										setFormData((prev) => ({
-											...prev,
-											starts_at: e.target.value,
-										}))
-									}
-								/>
-							</div>
-							<div className='grid gap-2'>
-								<Label htmlFor='ends_at'>End Time</Label>
-								<Input
-									id='ends_at'
-									type='datetime-local'
-									value={formData.ends_at}
-									onChange={(e) =>
-										setFormData((prev) => ({
-											...prev,
-											ends_at: e.target.value,
-										}))
-									}
-								/>
-							</div>
-						</div>
-						<div className='grid grid-cols-2 gap-4'>
-							<div className='grid gap-2'>
-								<Label htmlFor='pre_event_minutes'>
-									Pre-Event Buffer (minutes)
-								</Label>
-								<Input
-									id='pre_event_minutes'
-									type='number'
-									min={0}
-									value={formData.pre_event_minutes}
-									onChange={(e) =>
-										setFormData((prev) => ({
-											...prev,
-											pre_event_minutes:
-												parseInt(e.target.value, 10) || 0,
-										}))
-									}
-								/>
-							</div>
-							<div className='grid gap-2'>
-								<Label htmlFor='post_event_minutes'>
-									Post-Event Buffer (minutes)
-								</Label>
-								<Input
-									id='post_event_minutes'
-									type='number'
-									min={0}
-									value={formData.post_event_minutes}
-									onChange={(e) =>
-										setFormData((prev) => ({
-											...prev,
-											post_event_minutes:
-												parseInt(e.target.value, 10) || 0,
-										}))
-									}
-								/>
-							</div>
-						</div>
-						<div className='grid grid-cols-2 gap-4'>
-							<div className='grid gap-2'>
-								<Label htmlFor='multiplier'>Multiplier</Label>
-								<Input
-									id='multiplier'
-									type='number'
-									step={0.1}
-									min={1.0}
-									value={formData.multiplier}
-									onChange={(e) =>
-										setFormData((prev) => ({
-											...prev,
-											multiplier: parseFloat(e.target.value) || 1.0,
-										}))
-									}
-								/>
-							</div>
-							<div className='grid gap-2'>
-								<Label htmlFor='expected_demand_increase'>
-									Expected Demand Increase (%)
-								</Label>
-								<Input
-									id='expected_demand_increase'
-									type='number'
-									min={0}
-									value={formData.expected_demand_increase ?? ''}
-									onChange={(e) =>
-										setFormData((prev) => ({
-											...prev,
-											expected_demand_increase: e.target.value
-												? parseFloat(e.target.value)
-												: undefined,
-										}))
-									}
-									placeholder='Optional'
-								/>
-							</div>
-						</div>
-						<div className='grid grid-cols-2 gap-4'>
-							<div className='grid gap-2'>
-								<Label htmlFor='city_id'>City ID (optional)</Label>
-								<Input
-									id='city_id'
-									value={formData.city_id ?? ''}
-									onChange={(e) =>
-										setFormData((prev) => ({
-											...prev,
-											city_id: e.target.value || undefined,
-										}))
-									}
-									placeholder='Enter city ID'
-								/>
-							</div>
-							<div className='grid gap-2'>
-								<Label htmlFor='zone_id'>Zone ID (optional)</Label>
-								<Input
-									id='zone_id'
-									value={formData.zone_id ?? ''}
-									onChange={(e) =>
-										setFormData((prev) => ({
-											...prev,
-											zone_id: e.target.value || undefined,
-										}))
-									}
-									placeholder='Enter zone ID'
-								/>
-							</div>
-						</div>
-						<div className='flex items-center justify-between'>
-							<Label htmlFor='is_active'>Active</Label>
-							<Switch
-								id='is_active'
-								checked={formData.is_active}
-								onCheckedChange={(checked) =>
-									setFormData((prev) => ({ ...prev, is_active: checked }))
-								}
-							/>
-						</div>
-					</div>
-					<DialogFooter>
-						<Button
-							variant='outline'
-							onClick={() => setDialogOpen(false)}
-							disabled={isSubmitting}
-						>
-							Cancel
-						</Button>
-						<Button onClick={handleSubmit} disabled={isSubmitting}>
-							{isSubmitting
-								? 'Saving...'
-								: editingItem
-									? 'Update'
-									: 'Create'}
-						</Button>
-					</DialogFooter>
+								Cancel
+							</Button>
+							<Button type='submit' disabled={isSubmitting}>
+								{isSubmitting ? 'Saving...' : editingItem ? 'Update' : 'Create'}
+							</Button>
+						</DialogFooter>
+					</form>
 				</DialogContent>
 			</Dialog>
 
