@@ -14,6 +14,9 @@ import {
 	IconDropletHalf2Filled,
 } from '@tabler/icons-react';
 import { toast } from 'sonner';
+import { Controller, useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import { WeatherMultiplier, WeatherCondition } from '@/lib/types/pricing';
 import { pricingService } from '@/lib/api/pricing.service';
 import { LocationFilter } from '@/components/pricing/location-filter';
@@ -55,16 +58,26 @@ interface PricingWeatherMultipliersTabProps {
 	onRefresh?: () => void;
 }
 
-interface FormData {
-	weather_condition: WeatherCondition;
-	multiplier: number;
-	is_active: boolean;
-	country_id?: string;
-	region_id?: string;
-	city_id?: string;
-}
+const weatherSchema = z.object({
+	weather_condition: z.enum([
+		'clear',
+		'cloudy',
+		'rain',
+		'heavy_rain',
+		'snow',
+		'storm',
+		'extreme_heat',
+		'fog',
+	]),
+	multiplier: z
+		.number({ message: 'Multiplier is required' })
+		.min(1, 'Multiplier must be at least 1.0'),
+	is_active: z.boolean(),
+});
 
-const DEFAULT_FORM: FormData = {
+type WeatherFormValues = z.infer<typeof weatherSchema>;
+
+const DEFAULT_VALUES: WeatherFormValues = {
 	weather_condition: 'rain',
 	multiplier: 1.3,
 	is_active: true,
@@ -115,8 +128,21 @@ export function PricingWeatherMultipliersTab({ versionId, onRefresh }: PricingWe
 	// Dialog state
 	const [dialogOpen, setDialogOpen] = useState(false);
 	const [editingItem, setEditingItem] = useState<WeatherMultiplier | null>(null);
-	const [formData, setFormData] = useState<FormData>(DEFAULT_FORM);
-	const [isSubmitting, setIsSubmitting] = useState(false);
+	const [formLocation, setFormLocation] = useState<{
+		country_id?: string;
+		region_id?: string;
+		city_id?: string;
+	}>({});
+	const {
+		register,
+		handleSubmit,
+		control,
+		reset,
+		formState: { errors, isSubmitting },
+	} = useForm<WeatherFormValues>({
+		resolver: zodResolver(weatherSchema),
+		defaultValues: DEFAULT_VALUES,
+	});
 
 	// Delete state
 	const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -160,34 +186,29 @@ export function PricingWeatherMultipliersTab({ versionId, onRefresh }: PricingWe
 
 	const handleOpenCreate = () => {
 		setEditingItem(null);
-		setFormData({ ...DEFAULT_FORM, country_id: countryId, region_id: regionId, city_id: cityId });
+		setFormLocation({ country_id: countryId, region_id: regionId, city_id: cityId });
+		reset(DEFAULT_VALUES);
 		setDialogOpen(true);
 	};
 
 	const handleOpenEdit = (item: WeatherMultiplier) => {
 		setEditingItem(item);
-		setFormData({
-			weather_condition: item.weather_condition,
-			multiplier: item.multiplier,
-			is_active: item.is_active,
+		setFormLocation({
 			country_id: item.country_id,
 			region_id: item.region_id,
 			city_id: item.city_id,
 		});
+		reset({
+			weather_condition: item.weather_condition,
+			multiplier: item.multiplier,
+			is_active: item.is_active,
+		});
 		setDialogOpen(true);
 	};
 
-	const handleSubmit = async () => {
-		if (formData.multiplier < 1.0) {
-			toast.error('Multiplier must be at least 1.0');
-			return;
-		}
-		setIsSubmitting(true);
+	const onSubmit = async (values: WeatherFormValues) => {
 		try {
-			const payload = {
-				...formData,
-				version_id: versionId,
-			};
+			const payload = { ...values, ...formLocation, version_id: versionId };
 			if (editingItem) {
 				await pricingService.updateWeatherMultiplier(editingItem.id, payload);
 				toast.success('Weather multiplier updated');
@@ -202,8 +223,6 @@ export function PricingWeatherMultipliersTab({ versionId, onRefresh }: PricingWe
 			toast.error(
 				editingItem ? 'Failed to update weather multiplier' : 'Failed to create weather multiplier',
 			);
-		} finally {
-			setIsSubmitting(false);
 		}
 	};
 
@@ -327,76 +346,75 @@ export function PricingWeatherMultipliersTab({ versionId, onRefresh }: PricingWe
 								: 'Create a new weather-based pricing multiplier.'}
 						</DialogDescription>
 					</DialogHeader>
-					<div className='grid gap-4 py-4'>
-						<div className='grid gap-2'>
-							<Label htmlFor='weather_condition'>Weather Condition</Label>
-							<Select
-								value={formData.weather_condition}
-								onValueChange={(value) =>
-									setFormData((prev) => ({
-										...prev,
-										weather_condition: value as WeatherCondition,
-									}))
-								}
+					<form onSubmit={handleSubmit(onSubmit)}>
+						<div className='grid gap-4 py-4'>
+							<div className='grid gap-2'>
+								<Label htmlFor='weather_condition'>Weather Condition</Label>
+								<Controller
+									control={control}
+									name='weather_condition'
+									render={({ field }) => (
+										<Select value={field.value} onValueChange={field.onChange}>
+											<SelectTrigger id='weather_condition'>
+												<SelectValue placeholder='Select weather condition' />
+											</SelectTrigger>
+											<SelectContent>
+												<SelectItem value='clear'>Clear</SelectItem>
+												<SelectItem value='cloudy'>Cloudy</SelectItem>
+												<SelectItem value='rain'>Rain</SelectItem>
+												<SelectItem value='heavy_rain'>Heavy Rain</SelectItem>
+												<SelectItem value='snow'>Snow</SelectItem>
+												<SelectItem value='storm'>Storm</SelectItem>
+												<SelectItem value='extreme_heat'>Extreme Heat</SelectItem>
+												<SelectItem value='fog'>Fog</SelectItem>
+											</SelectContent>
+										</Select>
+									)}
+								/>
+							</div>
+							<div className='grid gap-2'>
+								<Label htmlFor='multiplier'>Multiplier</Label>
+								<Input
+									id='multiplier'
+									type='number'
+									step={0.1}
+									min={1.0}
+									aria-invalid={!!errors.multiplier}
+									{...register('multiplier', { valueAsNumber: true })}
+								/>
+								{errors.multiplier && (
+									<p className='text-xs text-destructive'>{errors.multiplier.message}</p>
+								)}
+							</div>
+							<div className='flex items-center justify-between'>
+								<Label htmlFor='is_active'>Active</Label>
+								<Controller
+									control={control}
+									name='is_active'
+									render={({ field }) => (
+										<Switch
+											id='is_active'
+											checked={field.value}
+											onCheckedChange={field.onChange}
+										/>
+									)}
+								/>
+							</div>
+						</div>
+						<DialogFooter>
+							<Button
+								type='button'
+								variant='outline'
+								onClick={() => setDialogOpen(false)}
+								disabled={isSubmitting}
 							>
-								<SelectTrigger>
-									<SelectValue placeholder='Select weather condition' />
-								</SelectTrigger>
-								<SelectContent>
-									<SelectItem value='clear'>Clear</SelectItem>
-									<SelectItem value='cloudy'>Cloudy</SelectItem>
-									<SelectItem value='rain'>Rain</SelectItem>
-									<SelectItem value='heavy_rain'>Heavy Rain</SelectItem>
-									<SelectItem value='snow'>Snow</SelectItem>
-									<SelectItem value='storm'>Storm</SelectItem>
-									<SelectItem value='extreme_heat'>Extreme Heat</SelectItem>
-									<SelectItem value='fog'>Fog</SelectItem>
-								</SelectContent>
-							</Select>
-						</div>
-						<div className='grid gap-2'>
-							<Label htmlFor='multiplier'>Multiplier</Label>
-							<Input
-								id='multiplier'
-								type='number'
-								step={0.1}
-								min={1.0}
-								value={formData.multiplier}
-								onChange={(e) =>
-									setFormData((prev) => ({
-										...prev,
-										multiplier: parseFloat(e.target.value) || 1.0,
-									}))
-								}
-							/>
-						</div>
-						<div className='flex items-center justify-between'>
-							<Label htmlFor='is_active'>Active</Label>
-							<Switch
-								id='is_active'
-								checked={formData.is_active}
-								onCheckedChange={(checked) =>
-									setFormData((prev) => ({ ...prev, is_active: checked }))
-								}
-							/>
-						</div>
-					</div>
-					<DialogFooter>
-						<Button
-							variant='outline'
-							onClick={() => setDialogOpen(false)}
-							disabled={isSubmitting}
-						>
-							Cancel
-						</Button>
-						<Button onClick={handleSubmit} disabled={isSubmitting}>
-							{isSubmitting
-								? 'Saving...'
-								: editingItem
-									? 'Update'
-									: 'Create'}
-						</Button>
-					</DialogFooter>
+								Cancel
+							</Button>
+							<Button type='submit' disabled={isSubmitting}>
+								{isSubmitting ? 'Saving...' : editingItem ? 'Update' : 'Create'}
+							</Button>
+						</DialogFooter>
+					</form>
 				</DialogContent>
 			</Dialog>
 
