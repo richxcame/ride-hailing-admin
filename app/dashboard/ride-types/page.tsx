@@ -20,23 +20,14 @@ import {
 } from '@tabler/icons-react';
 import { toast } from 'sonner';
 import { rideTypesService } from '@/lib/api/ride-types.service';
-import {
-	RideType,
-	CreateRideTypeRequest,
-	UpdateRideTypeRequest,
-} from '@/lib/types/ride-types';
+import { RideType, CreateRideTypeRequest } from '@/lib/types/ride-types';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
-import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
 	Dialog,
 	DialogContent,
 	DialogDescription,
-	DialogFooter,
 	DialogHeader,
 	DialogTitle,
 } from '@/components/ui/dialog';
@@ -62,26 +53,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CountryAvailabilityTab } from '@/components/ride-types/country-availability-tab';
 import { CityAvailabilityTab } from '@/components/ride-types/city-availability-tab';
 import { RideTypeIcon } from '@/components/ride-types/ride-type-icon';
-
-interface FormData {
-	name: string;
-	description: string;
-	icon: string;
-	icon_url: string;
-	capacity: number;
-	sort_order: number;
-	is_active: boolean;
-}
-
-const DEFAULT_FORM: FormData = {
-	name: '',
-	description: '',
-	icon: '',
-	icon_url: '',
-	capacity: 4,
-	sort_order: 0,
-	is_active: true,
-};
+import { RideTypeForm } from '@/components/ride-types/ride-type-form';
 
 export default function RideTypesPage() {
 	const [data, setData] = useState<RideType[]>([]);
@@ -92,7 +64,6 @@ export default function RideTypesPage() {
 	// Dialog state
 	const [dialogOpen, setDialogOpen] = useState(false);
 	const [editingItem, setEditingItem] = useState<RideType | null>(null);
-	const [formData, setFormData] = useState<FormData>(DEFAULT_FORM);
 	const [isSubmitting, setIsSubmitting] = useState(false);
 
 	// Delete state
@@ -125,57 +96,21 @@ export default function RideTypesPage() {
 
 	const handleOpenCreate = () => {
 		setEditingItem(null);
-		setFormData({ ...DEFAULT_FORM });
 		setDialogOpen(true);
 	};
 
 	const handleOpenEdit = (item: RideType) => {
 		setEditingItem(item);
-		setFormData({
-			name: item.name,
-			description: item.description || '',
-			icon: item.icon || '',
-			icon_url: item.icon_url || '',
-			capacity: item.capacity,
-			sort_order: item.sort_order,
-			is_active: item.is_active,
-		});
 		setDialogOpen(true);
 	};
 
-	const handleSubmit = async () => {
-		if (!formData.name.trim()) {
-			toast.error('Name is required');
-			return;
-		}
-		if (formData.capacity < 1) {
-			toast.error('Capacity must be at least 1');
-			return;
-		}
+	const handleFormSubmit = async (payload: CreateRideTypeRequest) => {
 		setIsSubmitting(true);
 		try {
 			if (editingItem) {
-				const payload: UpdateRideTypeRequest = {
-					name: formData.name.trim(),
-					description: formData.description.trim() || undefined,
-					icon: formData.icon.trim() || undefined,
-					icon_url: formData.icon_url.trim() || undefined,
-					capacity: formData.capacity,
-					sort_order: formData.sort_order,
-					is_active: formData.is_active,
-				};
 				await rideTypesService.updateRideType(editingItem.id, payload);
 				toast.success('Ride type updated');
 			} else {
-				const payload: CreateRideTypeRequest = {
-					name: formData.name.trim(),
-					description: formData.description.trim() || undefined,
-					icon: formData.icon.trim() || undefined,
-					icon_url: formData.icon_url.trim() || undefined,
-					capacity: formData.capacity,
-					sort_order: formData.sort_order,
-					is_active: formData.is_active,
-				};
 				await rideTypesService.createRideType(payload);
 				toast.success('Ride type created');
 			}
@@ -461,133 +396,13 @@ export default function RideTypesPage() {
 										: 'Create a new ride type product.'}
 								</DialogDescription>
 							</DialogHeader>
-							<div className='grid gap-4 py-4'>
-								<div className='grid gap-2'>
-									<Label htmlFor='name'>
-										Name <span className='text-destructive'>*</span>
-									</Label>
-									<Input
-										id='name'
-										value={formData.name}
-										onChange={(e) =>
-											setFormData((prev) => ({ ...prev, name: e.target.value }))
-										}
-										placeholder='e.g., Economy, Premium, XL'
-									/>
-								</div>
-								<div className='grid gap-2'>
-									<Label htmlFor='description'>Description</Label>
-									<Textarea
-										id='description'
-										value={formData.description}
-										onChange={(e) =>
-											setFormData((prev) => ({ ...prev, description: e.target.value }))
-										}
-										placeholder='Affordable rides for everyday travel'
-										rows={2}
-									/>
-								</div>
-								<div className='grid grid-cols-3 gap-4'>
-									<div className='grid gap-2'>
-										<Label htmlFor='icon'>Icon</Label>
-										<Input
-											id='icon'
-											value={formData.icon}
-											onChange={(e) =>
-												setFormData((prev) => ({ ...prev, icon: e.target.value }))
-											}
-											placeholder='icon name'
-										/>
-									</div>
-									<div className='grid gap-2'>
-										<Label htmlFor='capacity'>
-											Capacity <span className='text-destructive'>*</span>
-										</Label>
-										<Input
-											id='capacity'
-											type='number'
-											min={1}
-											value={formData.capacity}
-											onChange={(e) =>
-												setFormData((prev) => ({
-													...prev,
-													capacity: parseInt(e.target.value, 10) || 1,
-												}))
-											}
-										/>
-									</div>
-									<div className='grid gap-2'>
-										<Label htmlFor='sort_order'>Sort Order</Label>
-										<Input
-											id='sort_order'
-											type='number'
-											min={0}
-											value={formData.sort_order}
-											onChange={(e) =>
-												setFormData((prev) => ({
-													...prev,
-													sort_order: parseInt(e.target.value, 10) || 0,
-												}))
-											}
-										/>
-									</div>
-								</div>
-								<div className='grid gap-2'>
-									<Label htmlFor='icon_url'>Image / 3D model URL</Label>
-									<div className='flex items-center gap-3'>
-										<RideTypeIcon
-											iconUrl={formData.icon_url}
-											icon={formData.icon}
-											name={formData.name}
-											size='lg'
-										/>
-										<div className='flex-1 space-y-1'>
-											<Input
-												id='icon_url'
-												value={formData.icon_url}
-												onChange={(e) =>
-													setFormData((prev) => ({
-														...prev,
-														icon_url: e.target.value,
-													}))
-												}
-												placeholder='https://cdn.example.com/ride-types/economy.glb'
-											/>
-											<p className='text-xs text-muted-foreground'>
-												Paste a public URL to a 2D image (PNG/WebP/SVG) or a 3D
-												model (glTF/GLB/USDZ). Uploading files directly is coming
-												once the backend upload endpoint lands.
-											</p>
-										</div>
-									</div>
-								</div>
-								<div className='flex items-center justify-between'>
-									<Label htmlFor='is_active'>Active</Label>
-									<Switch
-										id='is_active'
-										checked={formData.is_active}
-										onCheckedChange={(checked) =>
-											setFormData((prev) => ({ ...prev, is_active: checked }))
-										}
-									/>
-								</div>
-							</div>
-							<DialogFooter>
-								<Button
-									variant='outline'
-									onClick={() => setDialogOpen(false)}
-									disabled={isSubmitting}
-								>
-									Cancel
-								</Button>
-								<Button onClick={handleSubmit} disabled={isSubmitting}>
-									{isSubmitting
-										? 'Saving...'
-										: editingItem
-											? 'Update'
-											: 'Create'}
-								</Button>
-							</DialogFooter>
+							<RideTypeForm
+								key={editingItem?.id ?? 'new'}
+								initial={editingItem}
+								isSubmitting={isSubmitting}
+								onSubmit={handleFormSubmit}
+								onCancel={() => setDialogOpen(false)}
+							/>
 						</DialogContent>
 					</Dialog>
 
