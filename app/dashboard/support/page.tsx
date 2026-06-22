@@ -2,6 +2,9 @@
 
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { toast } from 'sonner';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import {
 	ColumnDef,
 	SortingState,
@@ -285,6 +288,13 @@ function createColumns(
 // Page component
 // ---------------------------------------------------------------------------
 
+const createTicketSchema = z.object({
+	user_id: z.string().trim().min(1, 'User ID is required'),
+	subject: z.string().trim().min(1, 'Subject is required'),
+	description: z.string().trim().min(1, 'Description is required'),
+});
+type CreateTicketFormValues = z.infer<typeof createTicketSchema>;
+
 export default function SupportTicketsPage() {
 	// Tickets list state
 	const [tickets, setTickets] = useState<SupportTicket[]>([]);
@@ -320,12 +330,12 @@ export default function SupportTicketsPage() {
 
 	// Create dialog state
 	const [isCreateOpen, setIsCreateOpen] = useState(false);
-	const [createUserId, setCreateUserId] = useState('');
 	const [createCategory, setCreateCategory] = useState<TicketCategory>('ride_issue');
 	const [createPriority, setCreatePriority] = useState<TicketPriority>('medium');
-	const [createSubject, setCreateSubject] = useState('');
-	const [createDescription, setCreateDescription] = useState('');
-	const [isCreating, setIsCreating] = useState(false);
+	const ticketForm = useForm<CreateTicketFormValues>({
+		resolver: zodResolver(createTicketSchema),
+		defaultValues: { user_id: '', subject: '', description: '' },
+	});
 
 	// Close ticket confirmation
 	const [closeDialogOpen, setCloseDialogOpen] = useState(false);
@@ -510,27 +520,19 @@ export default function SupportTicketsPage() {
 	// ------------------------------------------------------------------
 
 	const resetCreateForm = () => {
-		setCreateUserId('');
 		setCreateCategory('ride_issue');
 		setCreatePriority('medium');
-		setCreateSubject('');
-		setCreateDescription('');
+		ticketForm.reset({ user_id: '', subject: '', description: '' });
 	};
 
-	const handleCreateTicket = async () => {
-		if (!createUserId.trim() || !createSubject.trim() || !createDescription.trim()) {
-			toast.error('Please fill in all required fields');
-			return;
-		}
-
+	const onCreateTicket = async (values: CreateTicketFormValues) => {
 		try {
-			setIsCreating(true);
 			const payload: CreateTicketRequest = {
-				user_id: createUserId.trim(),
+				user_id: values.user_id.trim(),
 				category: createCategory,
 				priority: createPriority,
-				subject: createSubject.trim(),
-				description: createDescription.trim(),
+				subject: values.subject.trim(),
+				description: values.description.trim(),
 			};
 
 			await supportService.createTicket(payload);
@@ -542,8 +544,6 @@ export default function SupportTicketsPage() {
 		} catch (error) {
 			const errorMessage = error instanceof Error ? error.message : 'Failed to create ticket';
 			toast.error('Failed to create ticket', { description: errorMessage });
-		} finally {
-			setIsCreating(false);
 		}
 	};
 
@@ -1063,96 +1063,111 @@ export default function SupportTicketsPage() {
 						</DialogDescription>
 					</DialogHeader>
 
-					<div className='space-y-4'>
-						<div className='space-y-2'>
-							<Label htmlFor='create-user-id'>User ID <span className='text-destructive'>*</span></Label>
-							<Input
-								id='create-user-id'
-								placeholder='Enter user ID'
-								value={createUserId}
-								onChange={(e) => setCreateUserId(e.target.value)}
-							/>
-						</div>
-
-						<div className='grid grid-cols-2 gap-4'>
+					<form onSubmit={ticketForm.handleSubmit(onCreateTicket)}>
+						<div className='space-y-4'>
 							<div className='space-y-2'>
-								<Label htmlFor='create-category'>Category</Label>
-								<Select
-									value={createCategory}
-									onValueChange={(v) => setCreateCategory(v as TicketCategory)}
-								>
-									<SelectTrigger id='create-category'>
-										<SelectValue placeholder='Category' />
-									</SelectTrigger>
-									<SelectContent>
-										{(Object.keys(CATEGORY_LABELS) as TicketCategory[]).map((cat) => (
-											<SelectItem key={cat} value={cat}>
-												{CATEGORY_LABELS[cat]}
-											</SelectItem>
-										))}
-									</SelectContent>
-								</Select>
+								<Label htmlFor='create-user-id'>User ID <span className='text-destructive'>*</span></Label>
+								<Input
+									id='create-user-id'
+									placeholder='Enter user ID'
+									aria-invalid={!!ticketForm.formState.errors.user_id}
+									{...ticketForm.register('user_id')}
+								/>
+								{ticketForm.formState.errors.user_id && (
+									<p className='text-xs text-destructive'>
+										{ticketForm.formState.errors.user_id.message}
+									</p>
+								)}
 							</div>
+
+							<div className='grid grid-cols-2 gap-4'>
+								<div className='space-y-2'>
+									<Label htmlFor='create-category'>Category</Label>
+									<Select
+										value={createCategory}
+										onValueChange={(v) => setCreateCategory(v as TicketCategory)}
+									>
+										<SelectTrigger id='create-category'>
+											<SelectValue placeholder='Category' />
+										</SelectTrigger>
+										<SelectContent>
+											{(Object.keys(CATEGORY_LABELS) as TicketCategory[]).map((cat) => (
+												<SelectItem key={cat} value={cat}>
+													{CATEGORY_LABELS[cat]}
+												</SelectItem>
+											))}
+										</SelectContent>
+									</Select>
+								</div>
+								<div className='space-y-2'>
+									<Label htmlFor='create-priority'>Priority</Label>
+									<Select
+										value={createPriority}
+										onValueChange={(v) => setCreatePriority(v as TicketPriority)}
+									>
+										<SelectTrigger id='create-priority'>
+											<SelectValue placeholder='Priority' />
+										</SelectTrigger>
+										<SelectContent>
+											{(Object.keys(PRIORITY_LABELS) as TicketPriority[]).map((p) => (
+												<SelectItem key={p} value={p}>
+													{PRIORITY_LABELS[p]}
+												</SelectItem>
+											))}
+										</SelectContent>
+									</Select>
+								</div>
+							</div>
+
 							<div className='space-y-2'>
-								<Label htmlFor='create-priority'>Priority</Label>
-								<Select
-									value={createPriority}
-									onValueChange={(v) => setCreatePriority(v as TicketPriority)}
-								>
-									<SelectTrigger id='create-priority'>
-										<SelectValue placeholder='Priority' />
-									</SelectTrigger>
-									<SelectContent>
-										{(Object.keys(PRIORITY_LABELS) as TicketPriority[]).map((p) => (
-											<SelectItem key={p} value={p}>
-												{PRIORITY_LABELS[p]}
-											</SelectItem>
-										))}
-									</SelectContent>
-								</Select>
+								<Label htmlFor='create-subject'>Subject <span className='text-destructive'>*</span></Label>
+								<Input
+									id='create-subject'
+									placeholder='Brief description of the issue'
+									aria-invalid={!!ticketForm.formState.errors.subject}
+									{...ticketForm.register('subject')}
+								/>
+								{ticketForm.formState.errors.subject && (
+									<p className='text-xs text-destructive'>
+										{ticketForm.formState.errors.subject.message}
+									</p>
+								)}
+							</div>
+
+							<div className='space-y-2'>
+								<Label htmlFor='create-description'>Description <span className='text-destructive'>*</span></Label>
+								<Textarea
+									id='create-description'
+									placeholder='Detailed description of the issue...'
+									rows={4}
+									aria-invalid={!!ticketForm.formState.errors.description}
+									{...ticketForm.register('description')}
+								/>
+								{ticketForm.formState.errors.description && (
+									<p className='text-xs text-destructive'>
+										{ticketForm.formState.errors.description.message}
+									</p>
+								)}
 							</div>
 						</div>
 
-						<div className='space-y-2'>
-							<Label htmlFor='create-subject'>Subject <span className='text-destructive'>*</span></Label>
-							<Input
-								id='create-subject'
-								placeholder='Brief description of the issue'
-								value={createSubject}
-								onChange={(e) => setCreateSubject(e.target.value)}
-							/>
-						</div>
-
-						<div className='space-y-2'>
-							<Label htmlFor='create-description'>Description <span className='text-destructive'>*</span></Label>
-							<Textarea
-								id='create-description'
-								placeholder='Detailed description of the issue...'
-								value={createDescription}
-								onChange={(e) => setCreateDescription(e.target.value)}
-								rows={4}
-							/>
-						</div>
-					</div>
-
-					<DialogFooter>
-						<Button
-							variant='outline'
-							onClick={() => {
-								setIsCreateOpen(false);
-								resetCreateForm();
-							}}
-							disabled={isCreating}
-						>
-							Cancel
-						</Button>
-						<Button
-							onClick={handleCreateTicket}
-							disabled={isCreating || !createUserId.trim() || !createSubject.trim() || !createDescription.trim()}
-						>
-							{isCreating ? 'Creating...' : 'Create Ticket'}
-						</Button>
-					</DialogFooter>
+						<DialogFooter>
+							<Button
+								type='button'
+								variant='outline'
+								onClick={() => {
+									setIsCreateOpen(false);
+									resetCreateForm();
+								}}
+								disabled={ticketForm.formState.isSubmitting}
+							>
+								Cancel
+							</Button>
+							<Button type='submit' disabled={ticketForm.formState.isSubmitting}>
+								{ticketForm.formState.isSubmitting ? 'Creating...' : 'Create Ticket'}
+							</Button>
+						</DialogFooter>
+					</form>
 				</DialogContent>
 			</Dialog>
 
