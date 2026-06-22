@@ -168,6 +168,11 @@ export interface PricingPreviewRequest {
 	latitude: number;
 	longitude: number;
 	ride_type_id?: string;
+	// Optional but recommended: passing the market's country code resolves the
+	// currency straight from the countries table, so the preview is correct even
+	// where region/city boundaries aren't seeded yet (coordinate→country
+	// resolution depends on those). Omitted → currency resolved from coordinates.
+	country_code?: string;
 }
 
 export interface PricingPreviewResult {
@@ -190,6 +195,12 @@ export interface PricingPreviewResult {
 	tax_inclusive: boolean;
 	cancellation_fees: CancellationFee[];
 	inheritance_chain?: string[];
+	// Currency the rider would be charged in (ISO 4217). Always returned by the
+	// backend; defaults to "USD" when it can't be resolved.
+	currency_code?: string;
+	// Country the currency was resolved from, when known (empty for coordinate-
+	// only resolution).
+	country_code?: string;
 }
 
 // Request types
@@ -230,14 +241,19 @@ export interface CreatePricingConfigRequest {
 
 export type UpdatePricingConfigRequest = CreatePricingConfigRequest;
 
-// Audit log entry
+// Audit log entry. Field names mirror the backend's pricing_audit_logs columns:
+// admin_id, old_values, new_values, reason (all plural / snake_case).
 export interface PricingAuditLog {
 	id: string;
 	entity_type: string;
 	entity_id: string;
 	action: string;
-	old_value?: Record<string, unknown>;
-	new_value?: Record<string, unknown>;
-	changed_by?: string;
+	// Before/after snapshots as JSON. Currently null until the backend handlers
+	// start capturing them, but typed so the diff view works once they do.
+	old_values?: Record<string, unknown>;
+	new_values?: Record<string, unknown>;
+	reason?: string;
+	// UUID of the admin who made the change (nil UUID == a system action).
+	admin_id: string;
 	created_at: string;
 }

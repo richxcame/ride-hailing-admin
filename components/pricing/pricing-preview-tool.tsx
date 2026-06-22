@@ -1,19 +1,22 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { IconSearch } from '@tabler/icons-react';
 import { pricingService } from '@/lib/api/pricing.service';
 import { PricingPreviewResult } from '@/lib/types/pricing';
 import { geographyService } from '@/lib/api/geography.service';
+import { rideTypesService } from '@/lib/api/ride-types.service';
 import { fetchAllPages } from '@/lib/api/paginate';
 import { Country } from '@/lib/types/geography';
+import { RideType } from '@/lib/types/ride-types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Separator } from '@/components/ui/separator';
+import { EntityCombobox } from '@/components/entity-combobox';
 import {
 	Select,
 	SelectContent,
@@ -26,26 +29,32 @@ export function PricingPreviewTool() {
 	const [latitude, setLatitude] = useState('');
 	const [longitude, setLongitude] = useState('');
 	const [rideTypeId, setRideTypeId] = useState<string | undefined>();
+	const [countryCode, setCountryCode] = useState('');
 	const [result, setResult] = useState<PricingPreviewResult | null>(null);
 	const [isLoading, setIsLoading] = useState(false);
 	const [countries, setCountries] = useState<Country[]>([]);
+	const [rideTypes, setRideTypes] = useState<RideType[]>([]);
 
-	// Resolve the resolved location's country currency so amounts aren't shown
-	// in a hardcoded "$".
+	// Load the country + ride-type pickers. Picking a country passes its code to
+	// the preview endpoint, which resolves the currency straight from the
+	// countries table — correct even for markets without region/city boundaries
+	// (where coordinate→country resolution can't pin down a currency).
 	useEffect(() => {
 		let active = true;
 		fetchAllPages((offset, limit) => geographyService.getCountries({ offset, limit }))
 			.then((all) => active && setCountries(all))
+			.catch(() => {});
+		fetchAllPages((offset, limit) => rideTypesService.getRideTypes({ offset, limit }))
+			.then((all) => active && setRideTypes(all))
 			.catch(() => {});
 		return () => {
 			active = false;
 		};
 	}, []);
 
-	const currency = useMemo(
-		() => countries.find((c) => c.id === result?.country_id)?.currency_code ?? '',
-		[countries, result?.country_id],
-	);
+	// The backend now returns the resolved currency directly, so amounts are no
+	// longer shown in a hardcoded "$".
+	const currency = result?.currency_code ?? '';
 
 	const handlePreview = async () => {
 		if (!latitude || !longitude) {
@@ -83,6 +92,7 @@ export function PricingPreviewTool() {
 				latitude: lat,
 				longitude: lng,
 				ride_type_id: rideTypeId,
+				country_code: countryCode || undefined,
 			});
 			setResult(response);
 		} catch (error) {
@@ -122,6 +132,8 @@ export function PricingPreviewTool() {
 					<CardTitle>Pricing Preview</CardTitle>
 					<CardDescription>
 						Enter coordinates to see the resolved pricing for a specific location.
+						Set a country to resolve the currency in markets without region/city
+						boundary data.
 					</CardDescription>
 				</CardHeader>
 				<CardContent>
@@ -153,6 +165,17 @@ export function PricingPreviewTool() {
 							/>
 						</div>
 						<div className='space-y-1.5'>
+							<Label htmlFor='preview-country'>Country (optional)</Label>
+							<EntityCombobox
+								items={countries.map((c) => ({ id: c.code, label: `${c.name} (${c.code})` }))}
+								value={countryCode}
+								onChange={(code) => setCountryCode(code)}
+								placeholder='From coordinates'
+								emptyMessage='No countries found'
+								className='w-[200px]'
+							/>
+						</div>
+						<div className='space-y-1.5'>
 							<Label htmlFor='preview-ride-type'>Ride Type (optional)</Label>
 							<Select
 								value={rideTypeId || 'all'}
@@ -163,6 +186,11 @@ export function PricingPreviewTool() {
 								</SelectTrigger>
 								<SelectContent>
 									<SelectItem value='all'>Any</SelectItem>
+									{rideTypes.map((rt) => (
+										<SelectItem key={rt.id} value={rt.id}>
+											{rt.name}
+										</SelectItem>
+									))}
 								</SelectContent>
 							</Select>
 						</div>
@@ -197,6 +225,8 @@ export function PricingPreviewTool() {
 						<CardTitle className='text-base'>Resolved Pricing</CardTitle>
 						<CardDescription>
 							Final computed values for this location
+							{result.currency_code ? ` — prices shown in ${result.currency_code}` : ''}
+							{result.country_code ? ` (${result.country_code})` : ''}
 						</CardDescription>
 					</CardHeader>
 					<CardContent>

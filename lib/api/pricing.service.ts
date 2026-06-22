@@ -304,7 +304,7 @@ export const pricingService = {
 		);
 	},
 
-	// ==================== Preview (not yet in backend) ====================
+	// ==================== Preview ====================
 
 	previewPricing: async (data: PricingPreviewRequest): Promise<PricingPreviewResult> => {
 		return api.post<PricingPreviewResult>(adminClient, `${BASE}/preview`, data);

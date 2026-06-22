@@ -32,6 +32,10 @@ import {
 	SelectValue,
 } from '@/components/ui/select';
 
+// The backend stamps system-initiated changes with the nil UUID rather than an
+// admin id.
+const NIL_UUID = '00000000-0000-0000-0000-000000000000';
+
 export function PricingAuditLogsTab() {
 	const [data, setData] = useState<PricingAuditLog[]>([]);
 	const [isLoading, setIsLoading] = useState(true);
@@ -94,7 +98,8 @@ export function PricingAuditLogsTab() {
 				id: 'expand',
 				header: '',
 				cell: ({ row }) => {
-					const hasChanges = row.original.old_value || row.original.new_value;
+					const hasChanges =
+							row.original.old_values || row.original.new_values || row.original.reason;
 					if (!hasChanges) return null;
 					return (
 						<Button
@@ -150,13 +155,13 @@ export function PricingAuditLogsTab() {
 				),
 			},
 			{
-				accessorKey: 'changed_by',
+				accessorKey: 'admin_id',
 				header: 'Changed By',
 				cell: ({ row }) => (
 					<span className='text-sm'>
-						{row.original.changed_by
-							? `${row.original.changed_by.substring(0, 8)}...`
-							: 'System'}
+						{!row.original.admin_id || row.original.admin_id === NIL_UUID
+							? 'System'
+							: `${row.original.admin_id.substring(0, 8)}...`}
 					</span>
 				),
 			},
@@ -195,13 +200,12 @@ export function PricingAuditLogsTab() {
 						<SelectContent>
 							<SelectItem value='all'>All types</SelectItem>
 							<SelectItem value='pricing_config'>Pricing Config</SelectItem>
-							<SelectItem value='pricing_version'>Pricing Version</SelectItem>
+							<SelectItem value='pricing_config_version'>Pricing Version</SelectItem>
 							<SelectItem value='surge_threshold'>Surge Threshold</SelectItem>
 							<SelectItem value='time_multiplier'>Time Multiplier</SelectItem>
 							<SelectItem value='weather_multiplier'>Weather Multiplier</SelectItem>
 							<SelectItem value='event_multiplier'>Event Multiplier</SelectItem>
 							<SelectItem value='zone_fee'>Zone Fee</SelectItem>
-							<SelectItem value='cancellation_tier'>Cancellation Tier</SelectItem>
 						</SelectContent>
 					</Select>
 				</div>
@@ -251,19 +255,25 @@ export function PricingAuditLogsTab() {
 												<TableRow key={`${row.id}-detail`}>
 													<TableCell colSpan={columns.length} className='bg-muted/50 p-4'>
 														<div className='grid gap-4 md:grid-cols-2'>
-															{row.original.old_value && (
+															{row.original.reason && (
+																<p className='md:col-span-2 text-sm'>
+																	<span className='font-semibold text-muted-foreground'>Reason: </span>
+																	{row.original.reason}
+																</p>
+															)}
+															{row.original.old_values && (
 																<div>
 																	<p className='text-xs font-semibold text-muted-foreground mb-1'>Previous Value</p>
 																	<pre className='text-xs rounded-md bg-muted p-3 overflow-x-auto max-h-48'>
-																		{JSON.stringify(row.original.old_value, null, 2)}
+																		{JSON.stringify(row.original.old_values, null, 2)}
 																	</pre>
 																</div>
 															)}
-															{row.original.new_value && (
+															{row.original.new_values && (
 																<div>
 																	<p className='text-xs font-semibold text-muted-foreground mb-1'>New Value</p>
 																	<pre className='text-xs rounded-md bg-muted p-3 overflow-x-auto max-h-48'>
-																		{JSON.stringify(row.original.new_value, null, 2)}
+																		{JSON.stringify(row.original.new_values, null, 2)}
 																	</pre>
 																</div>
 															)}
