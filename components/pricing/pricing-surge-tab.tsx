@@ -12,6 +12,9 @@ import {
 } from '@tanstack/react-table';
 import { IconPlus, IconEdit, IconTrash } from '@tabler/icons-react';
 import { toast } from 'sonner';
+import { Controller, useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import { SurgeThreshold } from '@/lib/types/pricing';
 import { pricingService } from '@/lib/api/pricing.service';
 import { LocationFilter } from '@/components/pricing/location-filter';
@@ -53,20 +56,34 @@ interface PricingSurgeTabProps {
 	onRefresh?: () => void;
 }
 
-interface FormData {
-	demand_supply_ratio_min: number;
-	demand_supply_ratio_max?: number;
-	multiplier: number;
-	is_active: boolean;
-	country_id?: string;
-	region_id?: string;
-	city_id?: string;
-}
+const surgeSchema = z
+	.object({
+		demand_supply_ratio_min: z.string().min(1, 'Ratio min is required'),
+		demand_supply_ratio_max: z.string(),
+		multiplier: z.string().min(1, 'Multiplier is required'),
+		is_active: z.boolean(),
+	})
+	.refine((d) => Number(d.demand_supply_ratio_min) > 0, {
+		message: 'Must be greater than 0',
+		path: ['demand_supply_ratio_min'],
+	})
+	.refine((d) => Number(d.multiplier) >= 1, {
+		message: 'Multiplier must be at least 1.0',
+		path: ['multiplier'],
+	})
+	.refine(
+		(d) =>
+			!d.demand_supply_ratio_max ||
+			Number(d.demand_supply_ratio_max) > Number(d.demand_supply_ratio_min),
+		{ message: 'Ratio max must be greater than ratio min', path: ['demand_supply_ratio_max'] },
+	);
 
-const DEFAULT_FORM: FormData = {
-	demand_supply_ratio_min: 1.5,
-	demand_supply_ratio_max: 2.0,
-	multiplier: 1.3,
+type SurgeFormValues = z.infer<typeof surgeSchema>;
+
+const DEFAULT_VALUES: SurgeFormValues = {
+	demand_supply_ratio_min: '1.5',
+	demand_supply_ratio_max: '2',
+	multiplier: '1.3',
 	is_active: true,
 };
 
@@ -84,8 +101,21 @@ export function PricingSurgeTab({ versionId, onRefresh }: PricingSurgeTabProps) 
 	// Dialog state
 	const [dialogOpen, setDialogOpen] = useState(false);
 	const [editingItem, setEditingItem] = useState<SurgeThreshold | null>(null);
-	const [formData, setFormData] = useState<FormData>(DEFAULT_FORM);
-	const [isSubmitting, setIsSubmitting] = useState(false);
+	const [formLocation, setFormLocation] = useState<{
+		country_id?: string;
+		region_id?: string;
+		city_id?: string;
+	}>({});
+	const {
+		register,
+		handleSubmit,
+		control,
+		reset,
+		formState: { errors, isSubmitting },
+	} = useForm<SurgeFormValues>({
+		resolver: zodResolver(surgeSchema),
+		defaultValues: DEFAULT_VALUES,
+	});
 
 	// Delete state
 	const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -126,45 +156,44 @@ export function PricingSurgeTab({ versionId, onRefresh }: PricingSurgeTabProps) 
 
 	const handleOpenCreate = () => {
 		setEditingItem(null);
-		setFormData({ ...DEFAULT_FORM, country_id: countryId, region_id: regionId, city_id: cityId });
+		setFormLocation({ country_id: countryId, region_id: regionId, city_id: cityId });
+		reset(DEFAULT_VALUES);
 		setDialogOpen(true);
 	};
 
 	const handleOpenEdit = (item: SurgeThreshold) => {
 		setEditingItem(item);
-		setFormData({
-			demand_supply_ratio_min: item.demand_supply_ratio_min,
-			demand_supply_ratio_max: item.demand_supply_ratio_max,
-			multiplier: item.multiplier,
-			is_active: item.is_active,
+		setFormLocation({
 			country_id: item.country_id,
 			region_id: item.region_id,
 			city_id: item.city_id,
 		});
+		reset({
+			demand_supply_ratio_min: item.demand_supply_ratio_min.toString(),
+			demand_supply_ratio_max: item.demand_supply_ratio_max?.toString() ?? '',
+			multiplier: item.multiplier.toString(),
+			is_active: item.is_active,
+		});
 		setDialogOpen(true);
 	};
 
-	const handleSubmit = async () => {
-		if (formData.demand_supply_ratio_min <= 0) {
-			toast.error('Demand/supply ratio min must be positive');
-			return;
-		}
-		if (formData.demand_supply_ratio_max && formData.demand_supply_ratio_max <= formData.demand_supply_ratio_min) {
-			toast.error('Demand/supply ratio max must be greater than ratio min');
-			return;
-		}
-		if (formData.multiplier < 1.0) {
-			toast.error('Multiplier must be at least 1.0');
-			return;
-		}
-		setIsSubmitting(true);
+	const onSubmit = async (values: SurgeFormValues) => {
 		try {
+			const payload = {
+				demand_supply_ratio_min: Number(values.demand_supply_ratio_min),
+				demand_supply_ratio_max: values.demand_supply_ratio_max
+					? Number(values.demand_supply_ratio_max)
+					: undefined,
+				multiplier: Number(values.multiplier),
+				is_active: values.is_active,
+				...formLocation,
+			};
 			if (editingItem) {
-				await pricingService.updateSurgeThreshold(editingItem.id, formData);
+				await pricingService.updateSurgeThreshold(editingItem.id, payload);
 				toast.success('Surge threshold updated');
 			} else {
 				await pricingService.createSurgeThreshold(versionId, {
-					...formData,
+					...payload,
 					version_id: versionId,
 				});
 				toast.success('Surge threshold created');
@@ -174,8 +203,6 @@ export function PricingSurgeTab({ versionId, onRefresh }: PricingSurgeTabProps) 
 			onRefresh?.();
 		} catch {
 			toast.error(editingItem ? 'Failed to update threshold' : 'Failed to create threshold');
-		} finally {
-			setIsSubmitting(false);
 		}
 	};
 
@@ -405,84 +432,85 @@ export function PricingSurgeTab({ versionId, onRefresh }: PricingSurgeTabProps) 
 								: 'Create a new surge threshold for dynamic pricing.'}
 						</DialogDescription>
 					</DialogHeader>
-					<div className='grid gap-4 py-4'>
-						<div className='grid grid-cols-2 gap-4'>
-							<div className='grid gap-2'>
-								<Label htmlFor='demand_supply_ratio_min'>Ratio Min</Label>
-								<Input
-									id='demand_supply_ratio_min'
-									type='number'
-									step={0.1}
-									min={0}
-									value={formData.demand_supply_ratio_min}
-									onChange={(e) =>
-										setFormData((prev) => ({
-											...prev,
-											demand_supply_ratio_min: parseFloat(e.target.value) || 0,
-										}))
-									}
-								/>
+					<form onSubmit={handleSubmit(onSubmit)}>
+						<div className='grid gap-4 py-4'>
+							<div className='grid grid-cols-2 gap-4'>
+								<div className='grid gap-2'>
+									<Label htmlFor='demand_supply_ratio_min'>Ratio Min</Label>
+									<Input
+										id='demand_supply_ratio_min'
+										type='number'
+										step={0.1}
+										min={0}
+										aria-invalid={!!errors.demand_supply_ratio_min}
+										{...register('demand_supply_ratio_min')}
+									/>
+									{errors.demand_supply_ratio_min && (
+										<p className='text-xs text-destructive'>
+											{errors.demand_supply_ratio_min.message}
+										</p>
+									)}
+								</div>
+								<div className='grid gap-2'>
+									<Label htmlFor='demand_supply_ratio_max'>Ratio Max</Label>
+									<Input
+										id='demand_supply_ratio_max'
+										type='number'
+										step={0.1}
+										min={0}
+										aria-invalid={!!errors.demand_supply_ratio_max}
+										{...register('demand_supply_ratio_max')}
+									/>
+									{errors.demand_supply_ratio_max && (
+										<p className='text-xs text-destructive'>
+											{errors.demand_supply_ratio_max.message}
+										</p>
+									)}
+								</div>
 							</div>
 							<div className='grid gap-2'>
-								<Label htmlFor='demand_supply_ratio_max'>Ratio Max</Label>
+								<Label htmlFor='multiplier'>Multiplier</Label>
 								<Input
-									id='demand_supply_ratio_max'
+									id='multiplier'
 									type='number'
 									step={0.1}
-									min={0}
-									value={formData.demand_supply_ratio_max}
-									onChange={(e) =>
-										setFormData((prev) => ({
-											...prev,
-											demand_supply_ratio_max: parseFloat(e.target.value) || 0,
-										}))
-									}
+									min={1.0}
+									aria-invalid={!!errors.multiplier}
+									{...register('multiplier')}
+								/>
+								{errors.multiplier && (
+									<p className='text-xs text-destructive'>{errors.multiplier.message}</p>
+								)}
+							</div>
+							<div className='flex items-center justify-between'>
+								<Label htmlFor='is_active'>Active</Label>
+								<Controller
+									control={control}
+									name='is_active'
+									render={({ field }) => (
+										<Switch
+											id='is_active'
+											checked={field.value}
+											onCheckedChange={field.onChange}
+										/>
+									)}
 								/>
 							</div>
 						</div>
-						<div className='grid gap-2'>
-							<Label htmlFor='multiplier'>Multiplier</Label>
-							<Input
-								id='multiplier'
-								type='number'
-								step={0.1}
-								min={1.0}
-								value={formData.multiplier}
-								onChange={(e) =>
-									setFormData((prev) => ({
-										...prev,
-										multiplier: parseFloat(e.target.value) || 1.0,
-									}))
-								}
-							/>
-						</div>
-						<div className='flex items-center justify-between'>
-							<Label htmlFor='is_active'>Active</Label>
-							<Switch
-								id='is_active'
-								checked={formData.is_active}
-								onCheckedChange={(checked) =>
-									setFormData((prev) => ({ ...prev, is_active: checked }))
-								}
-							/>
-						</div>
-					</div>
-					<DialogFooter>
-						<Button
-							variant='outline'
-							onClick={() => setDialogOpen(false)}
-							disabled={isSubmitting}
-						>
-							Cancel
-						</Button>
-						<Button onClick={handleSubmit} disabled={isSubmitting}>
-							{isSubmitting
-								? 'Saving...'
-								: editingItem
-									? 'Update'
-									: 'Create'}
-						</Button>
-					</DialogFooter>
+						<DialogFooter>
+							<Button
+								type='button'
+								variant='outline'
+								onClick={() => setDialogOpen(false)}
+								disabled={isSubmitting}
+							>
+								Cancel
+							</Button>
+							<Button type='submit' disabled={isSubmitting}>
+								{isSubmitting ? 'Saving...' : editingItem ? 'Update' : 'Create'}
+							</Button>
+						</DialogFooter>
+					</form>
 				</DialogContent>
 			</Dialog>
 
