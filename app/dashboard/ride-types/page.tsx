@@ -61,11 +61,13 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CountryAvailabilityTab } from '@/components/ride-types/country-availability-tab';
 import { CityAvailabilityTab } from '@/components/ride-types/city-availability-tab';
+import { RideTypeIcon } from '@/components/ride-types/ride-type-icon';
 
 interface FormData {
 	name: string;
 	description: string;
 	icon: string;
+	icon_url: string;
 	capacity: number;
 	sort_order: number;
 	is_active: boolean;
@@ -75,6 +77,7 @@ const DEFAULT_FORM: FormData = {
 	name: '',
 	description: '',
 	icon: '',
+	icon_url: '',
 	capacity: 4,
 	sort_order: 0,
 	is_active: true,
@@ -132,6 +135,7 @@ export default function RideTypesPage() {
 			name: item.name,
 			description: item.description || '',
 			icon: item.icon || '',
+			icon_url: item.icon_url || '',
 			capacity: item.capacity,
 			sort_order: item.sort_order,
 			is_active: item.is_active,
@@ -155,6 +159,7 @@ export default function RideTypesPage() {
 					name: formData.name.trim(),
 					description: formData.description.trim() || undefined,
 					icon: formData.icon.trim() || undefined,
+					icon_url: formData.icon_url.trim() || undefined,
 					capacity: formData.capacity,
 					sort_order: formData.sort_order,
 					is_active: formData.is_active,
@@ -166,6 +171,7 @@ export default function RideTypesPage() {
 					name: formData.name.trim(),
 					description: formData.description.trim() || undefined,
 					icon: formData.icon.trim() || undefined,
+					icon_url: formData.icon_url.trim() || undefined,
 					capacity: formData.capacity,
 					sort_order: formData.sort_order,
 					is_active: formData.is_active,
@@ -206,9 +212,12 @@ export default function RideTypesPage() {
 				header: 'Name',
 				cell: ({ row }) => (
 					<div className='flex items-center gap-2'>
-						{row.original.icon && (
-							<span className='text-lg'>{row.original.icon}</span>
-						)}
+						<RideTypeIcon
+							iconUrl={row.original.icon_url}
+							icon={row.original.icon}
+							name={row.original.name}
+							size='sm'
+						/>
 						<span className='font-medium'>{row.original.name}</span>
 					</div>
 				),
@@ -521,6 +530,35 @@ export default function RideTypesPage() {
 												}))
 											}
 										/>
+									</div>
+								</div>
+								<div className='grid gap-2'>
+									<Label htmlFor='icon_url'>Image / 3D model URL</Label>
+									<div className='flex items-center gap-3'>
+										<RideTypeIcon
+											iconUrl={formData.icon_url}
+											icon={formData.icon}
+											name={formData.name}
+											size='lg'
+										/>
+										<div className='flex-1 space-y-1'>
+											<Input
+												id='icon_url'
+												value={formData.icon_url}
+												onChange={(e) =>
+													setFormData((prev) => ({
+														...prev,
+														icon_url: e.target.value,
+													}))
+												}
+												placeholder='https://cdn.example.com/ride-types/economy.glb'
+											/>
+											<p className='text-xs text-muted-foreground'>
+												Paste a public URL to a 2D image (PNG/WebP/SVG) or a 3D
+												model (glTF/GLB/USDZ). Uploading files directly is coming
+												once the backend upload endpoint lands.
+											</p>
+										</div>
 									</div>
 								</div>
 								<div className='flex items-center justify-between'>

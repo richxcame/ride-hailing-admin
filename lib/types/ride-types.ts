@@ -3,7 +3,10 @@ export interface RideType {
 	id: string;
 	name: string;
 	description?: string;
+	// Short icon hint (emoji or icon name) shown when no image is set.
 	icon?: string;
+	// Public URL to a 2D image (PNG/WebP/SVG) or 3D model (glTF/GLB/USDZ).
+	icon_url?: string;
 	capacity: number;
 	sort_order: number;
 	is_active: boolean;
@@ -26,6 +29,7 @@ export interface CountryRideTypeWithDetails extends CountryRideType {
 	ride_type_name: string;
 	ride_type_description?: string;
 	ride_type_icon?: string;
+	ride_type_icon_url?: string;
 	ride_type_capacity: number;
 }
 
@@ -44,6 +48,7 @@ export interface CityRideTypeWithDetails extends CityRideType {
 	ride_type_name: string;
 	ride_type_description?: string;
 	ride_type_icon?: string;
+	ride_type_icon_url?: string;
 	ride_type_capacity: number;
 }
 
@@ -52,6 +57,7 @@ export interface CreateRideTypeRequest {
 	name: string;
 	description?: string;
 	icon?: string;
+	icon_url?: string;
 	capacity: number;
 	sort_order?: number;
 	is_active: boolean;
@@ -61,6 +67,7 @@ export interface UpdateRideTypeRequest {
 	name?: string;
 	description?: string;
 	icon?: string;
+	icon_url?: string;
 	capacity?: number;
 	sort_order?: number;
 	is_active?: boolean;

@@ -15,6 +15,7 @@ import { geographyService } from '@/lib/api/geography.service';
 import { fetchAllPages } from '@/lib/api/paginate';
 import { EntityCombobox } from '@/components/entity-combobox';
 import { CountryRideTypeWithDetails, RideType } from '@/lib/types/ride-types';
+import { RideTypeIcon } from '@/components/ride-types/ride-type-icon';
 import { Country } from '@/lib/types/geography';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -214,11 +215,14 @@ export function CountryAvailabilityTab() {
 				id: 'name',
 				header: 'Ride Type',
 				cell: ({ row }) => (
-					<div>
+					<div className='flex items-center gap-2'>
+						<RideTypeIcon
+							iconUrl={row.original.ride_type_icon_url}
+							icon={row.original.ride_type_icon}
+							name={row.original.ride_type_name}
+							size='sm'
+						/>
 						<span className='font-medium'>{row.original.ride_type_name}</span>
-						{row.original.ride_type_icon && (
-							<span className='ml-2 text-muted-foreground'>{row.original.ride_type_icon}</span>
-						)}
 					</div>
 				),
 			},
