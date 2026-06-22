@@ -2,6 +2,9 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import Link from 'next/link';
 import {
 	IconRefresh,
@@ -390,6 +393,17 @@ function useAllColumns(onSuspend: (v: Vehicle) => void): ColumnDef<Vehicle>[] {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
+const reviewSchema = z
+	.object({
+		action: z.enum(['approve', 'reject']),
+		rejection_reason: z.string(),
+	})
+	.refine((d) => d.action !== 'reject' || d.rejection_reason.trim().length > 0, {
+		message: 'Rejection reason is required',
+		path: ['rejection_reason'],
+	});
+type ReviewFormValues = z.infer<typeof reviewSchema>;
+
 export default function VehiclesPage() {
 	const [activeTab, setActiveTab] = useState('pending');
 
@@ -418,9 +432,11 @@ export default function VehiclesPage() {
 
 	const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
 	const [reviewVehicle, setReviewVehicle] = useState<Vehicle | null>(null);
-	const [reviewAction, setReviewAction] = useState<'approve' | 'reject'>('approve');
-	const [rejectionReason, setRejectionReason] = useState('');
-	const [isSubmittingReview, setIsSubmittingReview] = useState(false);
+	const reviewForm = useForm<ReviewFormValues>({
+		resolver: zodResolver(reviewSchema),
+		defaultValues: { action: 'approve', rejection_reason: '' },
+	});
+	const reviewAction = reviewForm.watch('action');
 
 	const [suspendDialogOpen, setSuspendDialogOpen] = useState(false);
 	const [suspendVehicle, setSuspendVehicle] = useState<Vehicle | null>(null);
@@ -500,24 +516,20 @@ export default function VehiclesPage() {
 
 	// ── Actions ───────────────────────────────────────────────────────────────
 
-	const openApprove = (v: Vehicle) => { setReviewVehicle(v); setReviewAction('approve'); setRejectionReason(''); setReviewDialogOpen(true); };
-	const openReject  = (v: Vehicle) => { setReviewVehicle(v); setReviewAction('reject');  setRejectionReason(''); setReviewDialogOpen(true); };
+	const openApprove = (v: Vehicle) => { setReviewVehicle(v); reviewForm.reset({ action: 'approve', rejection_reason: '' }); setReviewDialogOpen(true); };
+	const openReject  = (v: Vehicle) => { setReviewVehicle(v); reviewForm.reset({ action: 'reject',  rejection_reason: '' }); setReviewDialogOpen(true); };
 	const openSuspend = (v: Vehicle) => { setSuspendVehicle(v); setSuspendReason(''); setSuspendDialogOpen(true); };
 
-	const submitReview = async () => {
+	const onReviewSubmit = async (values: ReviewFormValues) => {
 		if (!reviewVehicle) return;
-		if (reviewAction === 'reject' && !rejectionReason.trim()) { toast.error('Rejection reason is required'); return; }
 		try {
-			setIsSubmittingReview(true);
-			await vehiclesService.reviewVehicle(reviewVehicle.id, { approved: reviewAction === 'approve', rejection_reason: reviewAction === 'reject' ? rejectionReason.trim() : undefined });
-			toast.success(`Vehicle ${reviewAction === 'approve' ? 'approved' : 'rejected'}`);
+			await vehiclesService.reviewVehicle(reviewVehicle.id, { approved: values.action === 'approve', rejection_reason: values.action === 'reject' ? values.rejection_reason.trim() : undefined });
+			toast.success(`Vehicle ${values.action === 'approve' ? 'approved' : 'rejected'}`);
 			setReviewDialogOpen(false);
 			fetchPending(pendingMeta.offset);
 			fetchStats();
 		} catch (e) {
-			toast.error(`Failed to ${reviewAction} vehicle`, { description: e instanceof Error ? e.message : undefined });
-		} finally {
-			setIsSubmittingReview(false);
+			toast.error(`Failed to ${values.action} vehicle`, { description: e instanceof Error ? e.message : undefined });
 		}
 	};
 
@@ -805,14 +817,17 @@ export default function VehiclesPage() {
 							</div>
 							<div className='space-y-1.5'>
 								<Label htmlFor='rej-reason'>Rejection reason <span className='text-destructive'>*</span></Label>
-								<Textarea id='rej-reason' placeholder='Explain why this vehicle is being rejected…' rows={3} value={rejectionReason} onChange={e => setRejectionReason(e.target.value)} />
+								<Textarea id='rej-reason' placeholder='Explain why this vehicle is being rejected…' rows={3} aria-invalid={!!reviewForm.formState.errors.rejection_reason} {...reviewForm.register('rejection_reason')} />
+								{reviewForm.formState.errors.rejection_reason && (
+									<p className='text-xs text-destructive'>{reviewForm.formState.errors.rejection_reason.message}</p>
+								)}
 							</div>
 						</div>
 					)}
 					<DialogFooter>
-						<Button variant='outline' onClick={() => setReviewDialogOpen(false)} disabled={isSubmittingReview}>Cancel</Button>
-						<Button variant={reviewAction === 'approve' ? 'default' : 'destructive'} onClick={submitReview} disabled={isSubmittingReview || (reviewAction === 'reject' && !rejectionReason.trim())}>
-							{isSubmittingReview ? 'Submitting…' : reviewAction === 'approve' ? 'Approve Vehicle' : 'Reject Vehicle'}
+						<Button variant='outline' onClick={() => setReviewDialogOpen(false)} disabled={reviewForm.formState.isSubmitting}>Cancel</Button>
+						<Button variant={reviewAction === 'approve' ? 'default' : 'destructive'} onClick={reviewForm.handleSubmit(onReviewSubmit)} disabled={reviewForm.formState.isSubmitting}>
+							{reviewForm.formState.isSubmitting ? 'Submitting…' : reviewAction === 'approve' ? 'Approve Vehicle' : 'Reject Vehicle'}
 						</Button>
 					</DialogFooter>
 				</DialogContent>
