@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { toast } from 'sonner';
 import {
 	IconRefresh,
@@ -45,6 +45,35 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { DatePicker } from '@/components/date-picker';
+import {
+	PieChart,
+	Pie,
+	BarChart,
+	Bar,
+	XAxis,
+	YAxis,
+	CartesianGrid,
+	LabelList,
+} from 'recharts';
+import {
+	ChartContainer,
+	ChartTooltip,
+	ChartTooltipContent,
+	type ChartConfig,
+} from '@/components/ui/chart';
+
+// Slice/series colours pulled from the brand --chart-* palette (oklch purples).
+const CHART_PALETTE = [
+	'var(--chart-1)',
+	'var(--chart-2)',
+	'var(--chart-3)',
+	'var(--chart-4)',
+	'var(--chart-5)',
+];
+
+const financialChartConfig = {
+	amount: { label: 'Amount' },
+} satisfies ChartConfig;
 
 export default function AnalyticsPage() {
 	const [isLoading, setIsLoading] = useState(true);
@@ -177,6 +206,32 @@ export default function AnalyticsPage() {
 		return value.toLocaleString();
 	};
 
+	// Ride-type donut: colour each slice and build the config the shadcn chart
+	// tooltip uses to resolve slice labels.
+	const { rideTypeData, rideTypeChartConfig } = useMemo(() => {
+		const data = rideTypes.map((type, i) => ({
+			...type,
+			fill: CHART_PALETTE[i % CHART_PALETTE.length],
+		}));
+		const config: ChartConfig = { total_rides: { label: 'Rides' } };
+		rideTypes.forEach((type, i) => {
+			config[type.name] = {
+				label: type.name,
+				color: CHART_PALETTE[i % CHART_PALETTE.length],
+			};
+		});
+		return { rideTypeData: data, rideTypeChartConfig: config };
+	}, [rideTypes]);
+
+	// Financial tab: gross revenue vs total expenses vs net profit.
+	const financialBarData = financialReport
+		? [
+				{ label: 'Gross Revenue', amount: financialReport.gross_revenue, fill: 'var(--chart-2)' },
+				{ label: 'Expenses', amount: financialReport.total_expenses, fill: 'var(--chart-5)' },
+				{ label: 'Net Profit', amount: financialReport.profit, fill: 'var(--chart-1)' },
+			]
+		: [];
+
 	if (isLoading && !dashboard) {
 		return (
 			<div className='flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6'>
@@ -303,21 +358,40 @@ export default function AnalyticsPage() {
 							<CardDescription>Performance by vehicle type for selected period</CardDescription>
 						</CardHeader>
 						<CardContent>
-							<div className='space-y-4'>
-								{rideTypes.map((type) => (
-									<div key={type.ride_type_id} className='space-y-2'>
-										<div className='flex items-center justify-between'>
-											<div className='flex items-center gap-2'>
-												<span className='font-medium'>{type.name}</span>
-												<Badge variant='secondary'>{type.percentage.toFixed(1)}%</Badge>
+							<div className='grid items-center gap-6 lg:grid-cols-2'>
+								{rideTypeData.length > 0 && (
+									<ChartContainer
+										config={rideTypeChartConfig}
+										className='mx-auto aspect-square w-full max-w-[260px]'
+									>
+										<PieChart>
+											<ChartTooltip content={<ChartTooltipContent nameKey='name' hideLabel />} />
+											<Pie
+												data={rideTypeData}
+												dataKey='total_rides'
+												nameKey='name'
+												innerRadius={55}
+												strokeWidth={2}
+											/>
+										</PieChart>
+									</ChartContainer>
+								)}
+								<div className='space-y-4'>
+									{rideTypes.map((type) => (
+										<div key={type.ride_type_id} className='space-y-2'>
+											<div className='flex items-center justify-between'>
+												<div className='flex items-center gap-2'>
+													<span className='font-medium'>{type.name}</span>
+													<Badge variant='secondary'>{type.percentage.toFixed(1)}%</Badge>
+												</div>
+												<div className='text-sm text-muted-foreground'>
+													{formatNumber(type.total_rides)} rides • {formatCurrency(type.total_revenue)}
+												</div>
 											</div>
-											<div className='text-sm text-muted-foreground'>
-												{formatNumber(type.total_rides)} rides • {formatCurrency(type.total_revenue)}
-											</div>
+											<Progress value={type.percentage} className='h-2' />
 										</div>
-										<Progress value={type.percentage} className='h-2' />
-									</div>
-								))}
+									))}
+								</div>
 							</div>
 						</CardContent>
 					</Card>
@@ -741,6 +815,49 @@ export default function AnalyticsPage() {
 
 				{/* Financial Tab */}
 				<TabsContent value='financial' className='space-y-4'>
+					{financialReport && (
+						<Card>
+							<CardHeader>
+								<CardTitle>Revenue vs Expenses</CardTitle>
+								<CardDescription>
+									Gross revenue, total expenses, and net profit
+								</CardDescription>
+							</CardHeader>
+							<CardContent>
+								<ChartContainer config={financialChartConfig} className='h-[260px] w-full'>
+									<BarChart data={financialBarData} margin={{ top: 24 }}>
+										<CartesianGrid vertical={false} className='stroke-muted' />
+										<XAxis
+											dataKey='label'
+											tickLine={false}
+											axisLine={false}
+											tickMargin={8}
+											className='text-xs'
+										/>
+										<YAxis
+											tickLine={false}
+											axisLine={false}
+											width={56}
+											className='text-xs'
+											tickFormatter={(value) => `$${value >= 1000 ? `${(value / 1000).toFixed(0)}k` : value}`}
+										/>
+										<ChartTooltip
+											cursor={false}
+											content={<ChartTooltipContent formatter={(value) => formatCurrency(Number(value))} />}
+										/>
+										<Bar dataKey='amount' radius={[6, 6, 0, 0]}>
+											<LabelList
+												dataKey='amount'
+												position='top'
+												className='fill-foreground text-xs'
+												formatter={(value: number) => formatCurrency(value)}
+											/>
+										</Bar>
+									</BarChart>
+								</ChartContainer>
+							</CardContent>
+						</Card>
+					)}
 					<Card>
 						<CardHeader>
 							<CardTitle className='flex items-center gap-2'>

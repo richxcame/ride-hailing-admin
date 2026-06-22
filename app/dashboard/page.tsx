@@ -54,6 +54,7 @@ import {
 	Pie,
 	Cell,
 } from 'recharts';
+import { ChartContainer, type ChartConfig } from '@/components/ui/chart';
 
 // Payment method colors for charts
 const PAYMENT_COLORS = {
@@ -61,6 +62,12 @@ const PAYMENT_COLORS = {
 	wallet: '#8b5cf6',
 	cash: '#22c55e',
 };
+
+// Revenue trend chart series, themed via the --chart-* palette (oklch purples).
+const revenueChartConfig = {
+	revenue: { label: 'Revenue', color: 'var(--chart-1)' },
+	commission: { label: 'Commission', color: 'var(--chart-3)' },
+} satisfies ChartConfig;
 
 // Activity feed event icon/color mapping
 const EVENT_ICON_MAP: Record<string, { icon: React.ReactNode; color: string }> = {
@@ -727,12 +734,16 @@ export default function DashboardPage() {
 						{isLoadingRevenue ? (
 							<Skeleton className='h-64 w-full' />
 						) : revenueTrend && revenueTrend.trend.length > 0 ? (
-							<ResponsiveContainer width='100%' height={256}>
+							<ChartContainer config={revenueChartConfig} className='h-64 w-full'>
 								<AreaChart data={revenueTrend.trend}>
 									<defs>
-										<linearGradient id='colorRevenue' x1='0' y1='0' x2='0' y2='1'>
-											<stop offset='5%' stopColor='hsl(var(--primary))' stopOpacity={0.3} />
-											<stop offset='95%' stopColor='hsl(var(--primary))' stopOpacity={0} />
+										<linearGradient id='fillRevenue' x1='0' y1='0' x2='0' y2='1'>
+											<stop offset='5%' stopColor='var(--color-revenue)' stopOpacity={0.4} />
+											<stop offset='95%' stopColor='var(--color-revenue)' stopOpacity={0.05} />
+										</linearGradient>
+										<linearGradient id='fillCommission' x1='0' y1='0' x2='0' y2='1'>
+											<stop offset='5%' stopColor='var(--color-commission)' stopOpacity={0.35} />
+											<stop offset='95%' stopColor='var(--color-commission)' stopOpacity={0.03} />
 										</linearGradient>
 									</defs>
 									<CartesianGrid strokeDasharray='3 3' className='stroke-muted' />
@@ -787,12 +798,19 @@ export default function DashboardPage() {
 									<Area
 										type='monotone'
 										dataKey='revenue'
-										stroke='hsl(var(--primary))'
-										fill='url(#colorRevenue)'
+										stroke='var(--color-revenue)'
+										fill='url(#fillRevenue)'
+										strokeWidth={2}
+									/>
+									<Area
+										type='monotone'
+										dataKey='commission'
+										stroke='var(--color-commission)'
+										fill='url(#fillCommission)'
 										strokeWidth={2}
 									/>
 								</AreaChart>
-							</ResponsiveContainer>
+							</ChartContainer>
 						) : (
 							<div className='flex h-64 items-center justify-center text-sm text-muted-foreground'>
 								No revenue data available
