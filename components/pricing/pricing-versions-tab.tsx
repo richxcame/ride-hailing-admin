@@ -2,6 +2,9 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
+import { Controller, useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import { IconPlus, IconEdit, IconCheck, IconArchive, IconCopy } from '@tabler/icons-react';
 import { pricingService } from '@/lib/api/pricing.service';
 import {
@@ -42,6 +45,30 @@ interface PricingVersionsTabProps {
 
 type ActionType = 'activate' | 'archive' | 'clone';
 
+const versionSchema = z
+	.object({
+		name: z.string().trim().min(1, 'Name is required'),
+		description: z.string(),
+		effective_from: z.string(),
+		effective_until: z.string(),
+	})
+	.refine(
+		(d) =>
+			!d.effective_from ||
+			!d.effective_until ||
+			new Date(d.effective_until) > new Date(d.effective_from),
+		{ message: 'Effective until must be after effective from', path: ['effective_until'] },
+	);
+
+type VersionFormValues = z.infer<typeof versionSchema>;
+
+const DEFAULT_VALUES: VersionFormValues = {
+	name: '',
+	description: '',
+	effective_from: '',
+	effective_until: '',
+};
+
 export function PricingVersionsTab({ onRefresh }: PricingVersionsTabProps) {
 	const [versions, setVersions] = useState<PricingConfigVersion[]>([]);
 	const [isLoading, setIsLoading] = useState(true);
@@ -52,12 +79,15 @@ export function PricingVersionsTab({ onRefresh }: PricingVersionsTabProps) {
 	const [actionType, setActionType] = useState<ActionType>('activate');
 	const [isSubmitting, setIsSubmitting] = useState(false);
 
-	// Form state
-	const [formData, setFormData] = useState({
-		name: '',
-		description: '',
-		effective_from: '',
-		effective_until: '',
+	const {
+		register,
+		handleSubmit,
+		control,
+		reset,
+		formState: { errors, isSubmitting: formSubmitting },
+	} = useForm<VersionFormValues>({
+		resolver: zodResolver(versionSchema),
+		defaultValues: DEFAULT_VALUES,
 	});
 
 	const [refreshTick, setRefreshTick] = useState(0);
@@ -86,22 +116,14 @@ export function PricingVersionsTab({ onRefresh }: PricingVersionsTabProps) {
 		setRefreshTick((t) => t + 1);
 	}, []);
 
-	const handleInputChange = (field: string, value: string) => {
-		setFormData((prev) => ({ ...prev, [field]: value }));
-	};
-
-	const resetForm = () => {
-		setFormData({ name: '', description: '', effective_from: '', effective_until: '' });
-	};
-
 	const handleOpenCreate = () => {
-		resetForm();
+		reset(DEFAULT_VALUES);
 		setCreateDialogOpen(true);
 	};
 
 	const handleOpenEdit = (version: PricingConfigVersion) => {
 		setSelectedVersion(version);
-		setFormData({
+		reset({
 			name: version.name,
 			description: version.description || '',
 			effective_from: version.effective_from
@@ -120,75 +142,45 @@ export function PricingVersionsTab({ onRefresh }: PricingVersionsTabProps) {
 		setActionDialogOpen(true);
 	};
 
-	const handleCreate = async (e: React.FormEvent) => {
-		e.preventDefault();
-		setIsSubmitting(true);
-
+	const onCreate = async (values: VersionFormValues) => {
 		try {
-			if (!formData.name.trim()) {
-				toast.error('Please enter a version name');
-				return;
-			}
-
 			const payload: CreatePricingVersionRequest = {
-				name: formData.name.trim(),
-				description: formData.description.trim() || undefined,
-				effective_from: formData.effective_from
-					? new Date(formData.effective_from).toISOString()
-					: undefined,
-				effective_until: formData.effective_until
-					? new Date(formData.effective_until).toISOString()
-					: undefined,
+				name: values.name.trim(),
+				description: values.description.trim() || undefined,
+				effective_from: values.effective_from || undefined,
+				effective_until: values.effective_until || undefined,
 			};
-
 			await pricingService.createVersion(payload);
 			toast.success('Version created successfully', { description: payload.name });
 			setCreateDialogOpen(false);
-			resetForm();
+			reset(DEFAULT_VALUES);
 			fetchVersions();
 			onRefresh?.();
 		} catch (error) {
 			const msg = error instanceof Error ? error.message : 'Failed to create version';
 			toast.error('Failed to create version', { description: msg });
-		} finally {
-			setIsSubmitting(false);
 		}
 	};
 
-	const handleEdit = async (e: React.FormEvent) => {
-		e.preventDefault();
+	const onEdit = async (values: VersionFormValues) => {
 		if (!selectedVersion) return;
-		setIsSubmitting(true);
-
 		try {
-			if (!formData.name.trim()) {
-				toast.error('Please enter a version name');
-				return;
-			}
-
 			const payload: UpdatePricingVersionRequest = {
-				name: formData.name.trim(),
-				description: formData.description.trim() || undefined,
-				effective_from: formData.effective_from
-					? new Date(formData.effective_from).toISOString()
-					: undefined,
-				effective_until: formData.effective_until
-					? new Date(formData.effective_until).toISOString()
-					: undefined,
+				name: values.name.trim(),
+				description: values.description.trim() || undefined,
+				effective_from: values.effective_from || undefined,
+				effective_until: values.effective_until || undefined,
 			};
-
 			await pricingService.updateVersion(selectedVersion.id, payload);
 			toast.success('Version updated successfully', { description: payload.name });
 			setEditDialogOpen(false);
 			setSelectedVersion(null);
-			resetForm();
+			reset(DEFAULT_VALUES);
 			fetchVersions();
 			onRefresh?.();
 		} catch (error) {
 			const msg = error instanceof Error ? error.message : 'Failed to update version';
 			toast.error('Failed to update version', { description: msg });
-		} finally {
-			setIsSubmitting(false);
 		}
 	};
 
@@ -257,38 +249,50 @@ export function PricingVersionsTab({ onRefresh }: PricingVersionsTabProps) {
 				<Input
 					id='form-name'
 					placeholder='e.g., Q1 2026 Pricing'
-					value={formData.name}
-					onChange={(e) => handleInputChange('name', e.target.value)}
-					required
+					aria-invalid={!!errors.name}
+					{...register('name')}
 				/>
+				{errors.name && <p className='text-xs text-destructive'>{errors.name.message}</p>}
 			</div>
 			<div className='space-y-2'>
 				<Label htmlFor='form-description'>Description</Label>
 				<Textarea
 					id='form-description'
 					placeholder='Optional description for this version'
-					value={formData.description}
-					onChange={(e) => handleInputChange('description', e.target.value)}
 					rows={3}
+					{...register('description')}
 				/>
 			</div>
 			<div className='grid grid-cols-2 gap-4'>
-				<DateTimePicker
-					label='Effective From'
-					placeholder='Pick a start date & time'
-					date={formData.effective_from ? new Date(formData.effective_from) : undefined}
-					setDate={(d) =>
-						handleInputChange('effective_from', d ? d.toISOString() : '')
-					}
+				<Controller
+					control={control}
+					name='effective_from'
+					render={({ field }) => (
+						<DateTimePicker
+							label='Effective From'
+							placeholder='Pick a start date & time'
+							date={field.value ? new Date(field.value) : undefined}
+							setDate={(d) => field.onChange(d ? d.toISOString() : '')}
+						/>
+					)}
 				/>
-				<DateTimePicker
-					label='Effective Until'
-					placeholder='Pick an end date & time'
-					date={formData.effective_until ? new Date(formData.effective_until) : undefined}
-					setDate={(d) =>
-						handleInputChange('effective_until', d ? d.toISOString() : '')
-					}
-				/>
+				<div className='space-y-1'>
+					<Controller
+						control={control}
+						name='effective_until'
+						render={({ field }) => (
+							<DateTimePicker
+								label='Effective Until'
+								placeholder='Pick an end date & time'
+								date={field.value ? new Date(field.value) : undefined}
+								setDate={(d) => field.onChange(d ? d.toISOString() : '')}
+							/>
+						)}
+					/>
+					{errors.effective_until && (
+						<p className='text-xs text-destructive'>{errors.effective_until.message}</p>
+					)}
+				</div>
 			</div>
 		</>
 	);
@@ -436,7 +440,7 @@ export function PricingVersionsTab({ onRefresh }: PricingVersionsTabProps) {
 							Create a new pricing configuration version
 						</DialogDescription>
 					</DialogHeader>
-					<form onSubmit={handleCreate} className='space-y-4'>
+					<form onSubmit={handleSubmit(onCreate)} className='space-y-4'>
 						{renderVersionForm()}
 						<DialogFooter>
 							<Button
@@ -446,8 +450,8 @@ export function PricingVersionsTab({ onRefresh }: PricingVersionsTabProps) {
 							>
 								Cancel
 							</Button>
-							<Button type='submit' disabled={isSubmitting}>
-								{isSubmitting ? 'Creating...' : 'Create Version'}
+							<Button type='submit' disabled={formSubmitting}>
+								{formSubmitting ? 'Creating...' : 'Create Version'}
 							</Button>
 						</DialogFooter>
 					</form>
@@ -469,7 +473,7 @@ export function PricingVersionsTab({ onRefresh }: PricingVersionsTabProps) {
 							Update version details
 						</DialogDescription>
 					</DialogHeader>
-					<form onSubmit={handleEdit} className='space-y-4'>
+					<form onSubmit={handleSubmit(onEdit)} className='space-y-4'>
 						{renderVersionForm()}
 						<DialogFooter>
 							<Button
@@ -479,8 +483,8 @@ export function PricingVersionsTab({ onRefresh }: PricingVersionsTabProps) {
 							>
 								Cancel
 							</Button>
-							<Button type='submit' disabled={isSubmitting}>
-								{isSubmitting ? 'Saving...' : 'Save Changes'}
+							<Button type='submit' disabled={formSubmitting}>
+								{formSubmitting ? 'Saving...' : 'Save Changes'}
 							</Button>
 						</DialogFooter>
 					</form>
